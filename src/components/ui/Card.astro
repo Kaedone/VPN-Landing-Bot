@@ -1,0 +1,18 @@
+---
+interface Props {
+  class?: string;
+  variant?: 'default' | 'highlight' | 'danger';
+}
+
+const { class: className = '', variant = 'default' } = Astro.props;
+
+const variants = {
+  default: "bg-gray-900/60 border border-gray-800/80 shadow-xl backdrop-blur-sm",
+  highlight: "bg-gradient-to-b from-teal-950/40 to-gray-900/80 border border-teal-500/30 shadow-2xl shadow-teal-500/10 backdrop-blur-sm",
+  danger: "bg-gradient-to-b from-red-950/30 to-gray-900/80 border border-red-500/30 shadow-2xl shadow-red-500/10 backdrop-blur-sm"
+};
+---
+
+<div class={`rounded-2xl p-6 md:p-8 ${variants[variant]} ${className}`}>
+  <slot />
+</div>

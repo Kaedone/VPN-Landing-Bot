@@ -1,0 +1,70 @@
+---
+import Section from '../ui/Section.astro';
+import Card from '../ui/Card.astro';
+import Badge from '../ui/Badge.astro';
+import Check from '../ui/Check.astro';
+---
+
+<Section id="killswitch">
+  <div class="max-w-4xl mx-auto space-y-12">
+    <div class="text-center space-y-4">
+      <Badge variant="red">Главная угроза для стримеров</Badge>
+      <h2 class="text-3xl sm:text-5xl font-bold text-white tracking-tight">
+        Обрыв VPN во время эфира = <span class="text-red-400">катастрофа</span>
+      </h2>
+      <p class="text-gray-400 text-base sm:text-lg max-w-2xl mx-auto">
+        Обычные VPN при кратковременной потере связи молча «вываливают» твой реальный домашний IP в прямой эфир. Для автора контента это раскрытие локации и полная потеря безопасности.
+      </p>
+    </div>
+
+    <Card variant="danger" class="grid md:grid-cols-2 gap-8 items-center">
+      <div class="space-y-4">
+        <h3 class="text-xl font-semibold text-white flex items-center">
+          <span class="w-3 h-3 rounded-full bg-red-500 mr-3"></span>
+          Без Kill Switch (Угроза)
+        </h3>
+        <ul class="space-y-3 text-sm text-gray-300">
+          <li class="flex items-start">
+            <span class="text-red-400 mr-2 font-bold">✕</span>
+            Сеть моргнула на 1 секунду
+          </li>
+          <li class="flex items-start">
+            <span class="text-red-400 mr-2 font-bold">✕</span>
+            Трафик пошел напрямую через твоего провайдера
+          </li>
+          <li class="flex items-start">
+            <span class="text-red-400 mr-2 font-bold">✕</span>
+            Реальный IP зафиксирован на серверах площадки
+          </li>
+        </ul>
+      </div>
+
+      <div class="space-y-4 bg-gray-950/50 p-6 rounded-xl border border-teal-500/20">
+        <h3 class="text-xl font-semibold text-teal-400 flex items-center">
+          <Check />
+          С Kill Switch в клиенте (Защита)
+        </h3>
+        <ul class="space-y-3 text-sm text-gray-300">
+          <li class="flex items-start">
+            <Check />
+            При обрыве связи интернет блокируется мгновенно
+          </li>
+          <li class="flex items-start">
+            <Check />
+            Ни один пакетик данных не улетит наружу
+          </li>
+          <li class="flex items-start">
+            <Check />
+            Трансляция просто остановится, а IP останется скрытым
+          </li>
+        </ul>
+      </div>
+    </Card>
+
+    <div class="text-center bg-gray-900/40 border border-gray-800 p-6 rounded-2xl">
+      <p class="text-sm text-gray-300">
+        💡 <strong class="text-white">Как это работает:</strong> Kill Switch активируется в настройках клиента (Hiddify / v2rayN). В нашей инструкции мы подробно показываем, куда нажать, чтобы включить эту защиту за 10 секунд.
+      </p>
+    </div>
+  </div>
+</Section>

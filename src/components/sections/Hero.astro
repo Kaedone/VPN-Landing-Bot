@@ -1,0 +1,39 @@
+---
+import Button from '../ui/Button.astro';
+import Badge from '../ui/Badge.astro';
+import Section from '../ui/Section.astro';
+import { siteConfig, getTgLink } from '../../config/site';
+---
+
+<Section class="pt-24 md:pt-32 pb-16">
+  <div class="max-w-4xl mx-auto text-center space-y-8">
+    <Badge variant="teal">
+      <span class="w-2 h-2 rounded-full bg-teal-400 animate-pulse mr-2"></span>
+      Протокол VLESS + Reality • 10+ локаций
+    </Badge>
+
+    <h1 class="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white leading-[1.1]">
+      Твой трафик <span class="text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-emerald-300">никто не видит</span>
+    </h1>
+
+    <p class="text-lg sm:text-xl text-gray-300 max-w-2xl mx-auto leading-relaxed">
+      Приватный VPN для создателей контента и стримеров. Никаких компромиссов: защита от обрывов связи, абсолютная анонимность и стабильный доступ.
+    </p>
+
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
+      <Button href={getTgLink('landing')} size="lg" class="w-full sm:w-auto text-base px-8 py-4">
+        Получить конфиг в Telegram
+        <svg class="w-5 h-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+        </svg>
+      </Button>
+      <Button href={siteConfig.links.telegramWeb} variant="secondary" size="lg" target="_blank" rel="noopener noreferrer" class="w-full sm:w-auto">
+        Открыть Web Telegram
+      </Button>
+    </div>
+
+    <p class="text-xs text-gray-500">
+      ⚡️ Без регистрации • Настройка за 1 минуту • Тест 3 дня без автопродления
+    </p>
+  </div>
+</Section>
