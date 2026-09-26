@@ -4,3 +4,9 @@ dist/
 .astro/
 .env
 *.log
+
+# Локальные вспомогательные скрипты разработки
+setup-node.ps1
+run.ps1
+build.ps1
+git-init.ps1
