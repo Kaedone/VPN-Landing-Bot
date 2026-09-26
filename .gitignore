@@ -10,3 +10,7 @@ setup-node.ps1
 run.ps1
 build.ps1
 git-init.ps1
+install.ps1
+dev.ps1
+dev-host.ps1
+wait-port.ps1
