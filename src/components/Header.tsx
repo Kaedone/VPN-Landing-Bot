@@ -42,7 +42,7 @@ export const Header: React.FC<HeaderProps> = ({ settings, onOpenSettings }) => {
           </a>
 
           {/* Desktop Nav */}
-          <nav className="hidden lg:flex items-center gap-7 text-sm font-medium text-gray-300">
+          <nav className="hidden lg:flex items-center gap-6 xl:gap-7 text-sm font-medium text-gray-300">
             <a href="#audit" className="hover:text-[#A8B5A0] transition-colors flex items-center gap-1.5">
               <span>Аудит рисков</span>
               <span className="px-1 py-0.2 rounded text-[10px] bg-red-500/20 text-red-400 border border-red-500/30">
@@ -52,14 +52,15 @@ export const Header: React.FC<HeaderProps> = ({ settings, onOpenSettings }) => {
             <a href="#killswitch" className="hover:text-[#A8B5A0] transition-colors">
               Kill Switch
             </a>
+            <a href="#servers" className="hover:text-[#A8B5A0] transition-colors flex items-center gap-1">
+              <span>Серверы & Пинг</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            </a>
             <a href="#features" className="hover:text-[#A8B5A0] transition-colors">
               Happ & INCY
             </a>
             <a href="#honest" className="hover:text-[#A8B5A0] transition-colors">
               Честно о VPN
-            </a>
-            <a href="#verify" className="hover:text-[#A8B5A0] transition-colors">
-              Проверка утечек
             </a>
             <a href="#pricing" className="hover:text-[#A8B5A0] transition-colors">
               Тарифы
@@ -77,7 +78,7 @@ export const Header: React.FC<HeaderProps> = ({ settings, onOpenSettings }) => {
               className="p-2 sm:px-3 sm:py-2 rounded-lg bg-gray-900/80 border border-gray-800 text-gray-400 hover:text-[#A8B5A0] hover:border-[#A8B5A0]/40 transition-all flex items-center gap-1.5 text-xs font-mono"
             >
               <Settings className="w-4 h-4" />
-              <span className="hidden xl:inline text-gray-400">Настройки бота</span>
+              <span className="hidden xl:inline text-gray-400">Настройки</span>
             </button>
 
             <a
@@ -122,6 +123,16 @@ export const Header: React.FC<HeaderProps> = ({ settings, onOpenSettings }) => {
                 Защита от срыва стримов (Kill Switch)
               </a>
               <a
+                href="#servers"
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-emerald-400 hover:text-white py-1 flex items-center justify-between"
+              >
+                <span>Карта серверов и замер пинга</span>
+                <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/30 font-mono">
+                  10 Gbps
+                </span>
+              </a>
+              <a
                 href="#features"
                 onClick={() => setMobileMenuOpen(false)}
                 className="text-gray-300 hover:text-white py-1"
@@ -136,13 +147,6 @@ export const Header: React.FC<HeaderProps> = ({ settings, onOpenSettings }) => {
                 Честно о границах VPN
               </a>
               <a
-                href="#verify"
-                onClick={() => setMobileMenuOpen(false)}
-                className="text-gray-300 hover:text-white py-1"
-              >
-                Тест на утечки IP (Iphey / DNS)
-              </a>
-              <a
                 href="#pricing"
                 onClick={() => setMobileMenuOpen(false)}
                 className="text-gray-300 hover:text-white py-1"
@@ -153,7 +157,6 @@ export const Header: React.FC<HeaderProps> = ({ settings, onOpenSettings }) => {
                 Вопросы и ответы
               </a>
             </div>
-
             <div className="pt-3 border-t border-gray-800/80 flex items-center justify-between">
               <span className="text-xs text-gray-400 flex items-center gap-1.5 font-mono">
                 <Radio className="w-3.5 h-3.5 text-[#A8B5A0] animate-pulse" />

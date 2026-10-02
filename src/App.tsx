@@ -11,6 +11,7 @@ import { Hero } from './components/Hero';
 import { RiskAuditFunnel } from './components/RiskAuditFunnel';
 import { KillSwitchSection } from './components/KillSwitchSection';
 import { FeaturesSection } from './components/FeaturesSection';
+import { ServerMapSection } from './components/ServerMapSection';
 import { HonestSection } from './components/HonestSection';
 import { VerifySection } from './components/VerifySection';
 import { PricingSection } from './components/PricingSection';
@@ -53,6 +54,9 @@ export default function App() {
 
         {/* Technical Architecture: Happ & INCY, VLESS Reality, 10Gbps */}
         <FeaturesSection settings={settings} />
+
+        {/* Interactive Server Topology Map & Streaming Ping Statistics */}
+        <ServerMapSection settings={settings} />
 
         {/* Honest Section: What VPN hides vs Creator Hygiene */}
         <HonestSection />
