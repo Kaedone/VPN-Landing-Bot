@@ -37,9 +37,7 @@ export const Header: React.FC<HeaderProps> = ({ settings, onOpenSettings }) => {
                   VLESS
                 </span>
               </div>
-              <p className="text-[11px] text-gray-400 font-mono hidden sm:block">
-                Защита моделей & стримеров
-              </p>
+              <p className="text-[11px] text-gray-400 font-mono hidden sm:block">Защита моделей & стримеров</p>
             </div>
           </a>
 
@@ -151,11 +149,7 @@ export const Header: React.FC<HeaderProps> = ({ settings, onOpenSettings }) => {
               >
                 Тарифы и цены от 79 ₽
               </a>
-              <a
-                href="#faq"
-                onClick={() => setMobileMenuOpen(false)}
-                className="text-gray-300 hover:text-white py-1"
-              >
+              <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="text-gray-300 hover:text-white py-1">
                 Вопросы и ответы
               </a>
             </div>

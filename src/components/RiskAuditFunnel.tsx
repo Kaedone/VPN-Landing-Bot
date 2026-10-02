@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import { 
-  AlertTriangle, 
-  CheckCircle2, 
-  ShieldAlert, 
-  Send, 
-  RotateCcw, 
-  Cpu, 
-  Globe2, 
-  WifiOff, 
-  Lock, 
-  ExternalLink 
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ShieldAlert,
+  Send,
+  RotateCcw,
+  Cpu,
+  Globe2,
+  WifiOff,
+  Lock,
+  ExternalLink,
 } from 'lucide-react';
 import { SiteSettings, PlatformId, MethodId, FearId, QuizState } from '../types/vpn';
 import { buildTelegramLink } from '../config/defaultSettings';
@@ -51,7 +51,11 @@ export const RiskAuditFunnel: React.FC<RiskAuditFunnelProps> = ({ settings }) =>
     { id: 'chaturbate', name: 'Chaturbate', tag: 'WebCam трансляции' },
     { id: 'stripchat', name: 'StripChat', tag: 'WebCam трансляции' },
     { id: 'bongacams', name: 'BongaCams', tag: 'WebCam трансляции' },
-    { id: 'telegram_private', name: 'Приватный TG канал', tag: 'Платные доступы' },
+    {
+      id: 'telegram_private',
+      name: 'Приватный TG канал',
+      tag: 'Платные доступы',
+    },
     { id: 'other', name: 'Другая площадка / Студия', tag: 'Adult медиа' },
   ];
 
@@ -133,14 +137,13 @@ export const RiskAuditFunnel: React.FC<RiskAuditFunnelProps> = ({ settings }) =>
 
   const riskScore = calculateRiskScore();
   const botAuditLink = buildTelegramLink(
-    settings.botUsername, 
-    `audit_${answers.platform || 'adult'}_${answers.method || 'net'}`
+    settings.botUsername,
+    `audit_${answers.platform || 'adult'}_${answers.method || 'net'}`,
   );
 
   return (
     <section id="audit" className="py-16 sm:py-24 bg-[#0d131f] border-y border-gray-800/80 relative">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        
         {/* Header */}
         <div className="text-center space-y-3 mb-10 sm:mb-12">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-red-500/10 border border-red-500/30 text-xs font-mono text-red-400">
@@ -160,11 +163,7 @@ export const RiskAuditFunnel: React.FC<RiskAuditFunnelProps> = ({ settings }) =>
               <div
                 key={s}
                 className={`h-1.5 rounded-full transition-all duration-300 ${
-                  s === step
-                    ? 'w-10 bg-[#A8B5A0]'
-                    : s < step
-                    ? 'w-6 bg-[#A8B5A0]/50'
-                    : 'w-4 bg-gray-800'
+                  s === step ? 'w-10 bg-[#A8B5A0]' : s < step ? 'w-6 bg-[#A8B5A0]/50' : 'w-4 bg-gray-800'
                 }`}
               />
             ))}
@@ -203,10 +202,7 @@ export const RiskAuditFunnel: React.FC<RiskAuditFunnelProps> = ({ settings }) =>
         {step === 2 && (
           <div className="space-y-4 animate-in fade-in duration-300">
             <div className="flex items-center justify-between mb-4">
-              <button
-                onClick={() => setStep(1)}
-                className="text-xs text-gray-400 hover:text-white transition-colors"
-              >
+              <button onClick={() => setStep(1)} className="text-xs text-gray-400 hover:text-white transition-colors">
                 ← Назад к выбору площадки
               </button>
               <span className="text-xs font-mono text-[#A8B5A0]">Шаг 2 из 3</span>
@@ -245,10 +241,7 @@ export const RiskAuditFunnel: React.FC<RiskAuditFunnelProps> = ({ settings }) =>
         {step === 3 && (
           <div className="space-y-4 animate-in fade-in duration-300">
             <div className="flex items-center justify-between mb-4">
-              <button
-                onClick={() => setStep(2)}
-                className="text-xs text-gray-400 hover:text-white transition-colors"
-              >
+              <button onClick={() => setStep(2)} className="text-xs text-gray-400 hover:text-white transition-colors">
                 ← Назад к способу подключения
               </button>
               <span className="text-xs font-mono text-[#A8B5A0]">Шаг 3 из 3</span>
@@ -286,7 +279,6 @@ export const RiskAuditFunnel: React.FC<RiskAuditFunnelProps> = ({ settings }) =>
         {/* Step 4: Diagnosis Results & Personalized Bridge to Bot */}
         {step === 4 && (
           <div className="space-y-6 animate-in fade-in zoom-in-95 duration-400">
-            
             {/* Risk Gauge Card */}
             <div className="bg-gradient-to-b from-red-950/40 via-gray-900/90 to-gray-900/90 border border-red-500/40 rounded-2xl p-6 sm:p-8 space-y-6 relative overflow-hidden shadow-2xl">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gray-800 pb-5">
@@ -318,9 +310,9 @@ export const RiskAuditFunnel: React.FC<RiskAuditFunnelProps> = ({ settings }) =>
                         Угроза: Встроенный скрытый криптомайнер в Shine Browser
                       </strong>
                       <p className="text-gray-400">
-                        Shine Browser скрыто утилизирует ресурсы видеокарты и процессора для фонового майнинга. 
-                        Это приводит к внезапному перегреву железа, падению FPS и битрейта трансляции в OBS, 
-                        а также к неконтролируемым утечкам локальных IP-адресов через протокол WebRTC.
+                        Shine Browser скрыто утилизирует ресурсы видеокарты и процессора для фонового майнинга. Это
+                        приводит к внезапному перегреву железа, падению FPS и битрейта трансляции в OBS, а также к
+                        неконтролируемым утечкам локальных IP-адресов через протокол WebRTC.
                       </p>
                     </div>
                   </div>
@@ -334,9 +326,9 @@ export const RiskAuditFunnel: React.FC<RiskAuditFunnelProps> = ({ settings }) =>
                         Угроза: Фишинг, перехват токенов и деанон через зеркала
                       </strong>
                       <p className="text-gray-400">
-                        Зеркала не обеспечивают сквозного шифрования между тобой и платформой. 
-                        Твой интернет-провайдер в РФ видит все DNS-запросы и фиксирует активность в базе СОРМ, 
-                        а при открытии прямых медиа-потоков домашний IP уходит в открытый доступ.
+                        Зеркала не обеспечивают сквозного шифрования между тобой и платформой. Твой интернет-провайдер в
+                        РФ видит все DNS-запросы и фиксирует активность в базе СОРМ, а при открытии прямых медиа-потоков
+                        домашний IP уходит в открытый доступ.
                       </p>
                     </div>
                   </div>
@@ -350,8 +342,9 @@ export const RiskAuditFunnel: React.FC<RiskAuditFunnelProps> = ({ settings }) =>
                         Угроза: Отсутствие аварийного Kill Switch и заезженные IP
                       </strong>
                       <p className="text-gray-400">
-                        В обычных VPN при кратком обрыве Wi-Fi соединение падает напрямую на домашнего оператора. 
-                        Площадка мгновенно регистрирует твой реальный домашний IP, а зрители или модераторы видят город и провайдера.
+                        В обычных VPN при кратком обрыве Wi-Fi соединение падает напрямую на домашнего оператора.
+                        Площадка мгновенно регистрирует твой реальный домашний IP, а зрители или модераторы видят город
+                        и провайдера.
                       </p>
                     </div>
                   </div>
@@ -365,8 +358,8 @@ export const RiskAuditFunnel: React.FC<RiskAuditFunnelProps> = ({ settings }) =>
                         Решение для стримов: Happ и INCY на выделенных 10Gbps каналах
                       </strong>
                       <p className="text-gray-400">
-                        VLESS Reality обеспечивает непрерывный стабильный поток 60 FPS в 1080p/4K. 
-                        Никаких срывов приватных чатов и потери чаевых.
+                        VLESS Reality обеспечивает непрерывный стабильный поток 60 FPS в 1080p/4K. Никаких срывов
+                        приватных чатов и потери чаевых.
                       </p>
                     </div>
                   </div>
@@ -380,8 +373,8 @@ export const RiskAuditFunnel: React.FC<RiskAuditFunnelProps> = ({ settings }) =>
                         Защита от органов и проверок: 0 логов + офшорные серверы
                       </strong>
                       <p className="text-gray-400">
-                        Трафик маскируется под обычный защищенный просмотр сайтов через протокол Reality. 
-                        Провайдер не может зафиксировать посещение adult-ресурсов или факт трансляции.
+                        Трафик маскируется под обычный защищенный просмотр сайтов через протокол Reality. Провайдер не
+                        может зафиксировать посещение adult-ресурсов или факт трансляции.
                       </p>
                     </div>
                   </div>
@@ -420,12 +413,9 @@ export const RiskAuditFunnel: React.FC<RiskAuditFunnelProps> = ({ settings }) =>
                   </button>
                 </div>
               </div>
-
             </div>
-
           </div>
         )}
-
       </div>
     </section>
   );

@@ -135,7 +135,8 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   brandName: 'AdultVPN',
   botUsername: 'AdultVPN_bot',
   defaultStartParam: 'landing',
-  announcementText: '🔥 Работает без перебоев на мобильном интернете и домашних провайдерах. Оплата анонимно через Telegram Stars ⭐',
+  announcementText:
+    '🔥 Работает без перебоев на мобильном интернете и домашних провайдерах. Оплата анонимно через Telegram Stars ⭐',
   showAnnouncement: true,
   supportLink: 'https://t.me/AdultVPN_bot?start=support',
   pricing: DEFAULT_PRICING_PLANS,

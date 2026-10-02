@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import { 
-  ShieldAlert, 
-  ShieldCheck, 
-  XCircle, 
-  CheckCircle, 
-  WifiOff, 
-  Send, 
-  Smartphone, 
-  Laptop, 
-  Zap, 
-  Play 
+import {
+  ShieldAlert,
+  ShieldCheck,
+  XCircle,
+  CheckCircle,
+  WifiOff,
+  Send,
+  Smartphone,
+  Laptop,
+  Zap,
+  Play,
 } from 'lucide-react';
 import { SiteSettings } from '../types/vpn';
 import { buildTelegramLink } from '../config/defaultSettings';
@@ -41,13 +41,12 @@ export const KillSwitchSection: React.FC<KillSwitchSectionProps> = ({ settings }
     <section id="killswitch" className="py-16 sm:py-24 bg-[#0b0f19] relative overflow-hidden">
       {/* Background glow */}
       <div className="absolute top-1/2 left-0 w-80 h-80 rounded-full blur-[130px] bg-red-500/10 pointer-events-none" />
-      <div 
+      <div
         className="absolute bottom-0 right-0 w-80 h-80 rounded-full blur-[130px] pointer-events-none opacity-20"
         style={{ backgroundColor: '#A8B5A0' }}
       />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 space-y-12">
-        
         {/* Section Header */}
         <div className="text-center space-y-4 max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-red-500/10 border border-red-500/30 text-xs font-mono text-red-400">
@@ -60,22 +59,19 @@ export const KillSwitchSection: React.FC<KillSwitchSectionProps> = ({ settings }
           </h2>
 
           <p className="text-gray-400 text-base sm:text-lg leading-relaxed">
-            Обычные VPN при кратковременной потере связи молча «вываливают» твой реальный домашний IP в прямой эфир. 
-            Для автора контента это раскрытие реального города, домашнего провайдера и полная потеря безопасности.
+            Обычные VPN при кратковременной потере связи молча «вываливают» твой реальный домашний IP в прямой эфир. Для
+            автора контента это раскрытие реального города, домашнего провайдера и полная потеря безопасности.
           </p>
         </div>
 
         {/* Interactive Comparison Cards */}
         <div className="grid md:grid-cols-2 gap-6 sm:gap-8">
-          
           {/* Danger Card: Without Kill Switch */}
           <div className="rounded-2xl bg-gradient-to-b from-red-950/30 to-gray-900/80 border border-red-500/30 p-6 sm:p-8 space-y-6 relative overflow-hidden">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <span className="w-3.5 h-3.5 rounded-full bg-red-500 animate-pulse" />
-                <h3 className="text-lg sm:text-xl font-bold text-white">
-                  Без Kill Switch (Обычный VPN)
-                </h3>
+                <h3 className="text-lg sm:text-xl font-bold text-white">Без Kill Switch (Обычный VPN)</h3>
               </div>
               <span className="px-2.5 py-1 rounded text-[11px] font-mono font-bold bg-red-500/20 text-red-400 border border-red-500/30">
                 ОПАСНОСТЬ
@@ -100,7 +96,9 @@ export const KillSwitchSection: React.FC<KillSwitchSectionProps> = ({ settings }
               <li className="flex items-start gap-3">
                 <XCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
                 <span>
-                  <strong className="text-white block font-semibold">Реальный IP зафиксирован на серверах площадки</strong>
+                  <strong className="text-white block font-semibold">
+                    Реальный IP зафиксирован на серверах площадки
+                  </strong>
                   Зрители, чат или боты деанона перехватывают реальный IP и пробивают твой домашний адрес.
                 </span>
               </li>
@@ -116,9 +114,7 @@ export const KillSwitchSection: React.FC<KillSwitchSectionProps> = ({ settings }
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <span className="w-3.5 h-3.5 rounded-full bg-[#A8B5A0] animate-pulse" />
-                <h3 className="text-lg sm:text-xl font-bold text-white">
-                  С Kill Switch в Happ и INCY
-                </h3>
+                <h3 className="text-lg sm:text-xl font-bold text-white">С Kill Switch в Happ и INCY</h3>
               </div>
               <span className="px-2.5 py-1 rounded text-[11px] font-mono font-bold bg-[#A8B5A0]/20 text-[#A8B5A0] border border-[#A8B5A0]/40">
                 100% ИЗОЛЯЦИЯ
@@ -153,7 +149,6 @@ export const KillSwitchSection: React.FC<KillSwitchSectionProps> = ({ settings }
               Статус при сбое: <span className="text-[#A8B5A0] font-bold">ПОТОК ЗАБЛОКИРОВАН [IP В ТАЙНЕ]</span>
             </div>
           </div>
-
         </div>
 
         {/* Live Simulation Box */}
@@ -185,12 +180,9 @@ export const KillSwitchSection: React.FC<KillSwitchSectionProps> = ({ settings }
 
           {/* Simulation Visualization */}
           <div className="grid sm:grid-cols-2 gap-4 pt-2">
-            
             {/* Visual 1: Normal VPN */}
             <div className="p-4 rounded-xl bg-gray-950/80 border border-gray-800 space-y-2 font-mono text-xs">
-              <div className="text-gray-400 font-semibold uppercase tracking-wider">
-                Обычный VPN (Без Kill Switch):
-              </div>
+              <div className="text-gray-400 font-semibold uppercase tracking-wider">Обычный VPN (Без Kill Switch):</div>
               {simState === 'normal' ? (
                 <div className="text-emerald-400 flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -225,13 +217,10 @@ export const KillSwitchSection: React.FC<KillSwitchSectionProps> = ({ settings }
                     <ShieldCheck className="w-3.5 h-3.5" />
                     <span>Сбой сети: Kill Switch заблокировал сокет</span>
                   </div>
-                  <div className="text-[11px] text-gray-300">
-                    РЕЗУЛЬТАТ: 0 байт наружу. Домашний IP скрыт на 100%.
-                  </div>
+                  <div className="text-[11px] text-gray-300">РЕЗУЛЬТАТ: 0 байт наружу. Домашний IP скрыт на 100%.</div>
                 </div>
               )}
             </div>
-
           </div>
         </div>
 
@@ -244,7 +233,9 @@ export const KillSwitchSection: React.FC<KillSwitchSectionProps> = ({ settings }
               Включение Kill Switch занимает ровно 10 секунд
             </h4>
             <p className="text-xs sm:text-sm text-gray-400 max-w-2xl">
-              В приложении <strong className="text-white">Happ</strong> или <strong className="text-white">INCY</strong> перейди в «Настройки» → включи тумблер «Kill Switch / Блокировать трафик вне VPN». В нашем боте есть наглядный фото-гайд.
+              В приложении <strong className="text-white">Happ</strong> или <strong className="text-white">INCY</strong>{' '}
+              перейди в «Настройки» → включи тумблер «Kill Switch / Блокировать трафик вне VPN». В нашем боте есть
+              наглядный фото-гайд.
             </p>
           </div>
 
@@ -258,7 +249,6 @@ export const KillSwitchSection: React.FC<KillSwitchSectionProps> = ({ settings }
             <span>Инструкция в боте</span>
           </a>
         </div>
-
       </div>
     </section>
   );

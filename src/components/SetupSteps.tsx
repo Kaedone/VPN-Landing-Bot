@@ -34,7 +34,6 @@ export const SetupSteps: React.FC<SetupStepsProps> = ({ settings }) => {
   return (
     <section className="py-16 sm:py-24 bg-[#0d131f] border-t border-gray-800/80">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-        
         {/* Header */}
         <div className="text-center space-y-4 max-w-2xl mx-auto">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#131b26] border border-[#A8B5A0]/40 text-xs font-mono text-[#A8B5A0]">
@@ -46,7 +45,8 @@ export const SetupSteps: React.FC<SetupStepsProps> = ({ settings }) => {
           </h2>
 
           <p className="text-gray-400 text-sm sm:text-base">
-            Никаких сложных настроек терминала или заумных протоколов. Все работает через привычный интерфейс Telegram и понятные приложения.
+            Никаких сложных настроек терминала или заумных протоколов. Все работает через привычный интерфейс Telegram и
+            понятные приложения.
           </p>
         </div>
 
@@ -67,13 +67,9 @@ export const SetupSteps: React.FC<SetupStepsProps> = ({ settings }) => {
                   </span>
                 </div>
 
-                <h3 className="text-lg font-bold text-white group-hover:text-[#A8B5A0] transition-colors">
-                  {s.title}
-                </h3>
+                <h3 className="text-lg font-bold text-white group-hover:text-[#A8B5A0] transition-colors">{s.title}</h3>
 
-                <p className="text-sm text-gray-400 leading-relaxed">
-                  {s.desc}
-                </p>
+                <p className="text-sm text-gray-400 leading-relaxed">{s.desc}</p>
               </div>
 
               <div className="pt-2 text-xs font-mono text-[#A8B5A0] flex items-center gap-1">
@@ -96,7 +92,6 @@ export const SetupSteps: React.FC<SetupStepsProps> = ({ settings }) => {
             <span>Запустить бота и получить ключ</span>
           </a>
         </div>
-
       </div>
     </section>
   );

@@ -10,12 +10,7 @@ interface AdminSettingsModalProps {
   onSave: (newSettings: SiteSettings) => void;
 }
 
-export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
-  isOpen,
-  onClose,
-  settings,
-  onSave,
-}) => {
+export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({ isOpen, onClose, settings, onSave }) => {
   const [formData, setFormData] = useState<SiteSettings>({ ...settings });
   const [savedSuccess, setSavedSuccess] = useState(false);
 
@@ -52,7 +47,7 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div 
+      <div
         className="w-full max-w-2xl bg-[#0e1420] border border-gray-700/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
@@ -85,7 +80,6 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
 
         {/* Modal Body / Scrollable Form */}
         <form onSubmit={handleSave} className="p-5 sm:p-6 space-y-6 overflow-y-auto">
-          
           {/* Telegram Bot Link Config */}
           <div className="space-y-4 p-4 rounded-xl bg-gray-900/70 border border-gray-800">
             <h4 className="text-sm font-bold text-white flex items-center gap-2 font-mono uppercase tracking-wider">
@@ -95,9 +89,7 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-mono text-gray-300 mb-1">
-                  Юзернейм бота (без @ или с @):
-                </label>
+                <label className="block text-xs font-mono text-gray-300 mb-1">Юзернейм бота (без @ или с @):</label>
                 <input
                   type="text"
                   value={formData.botUsername}
@@ -109,13 +101,16 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-gray-300 mb-1">
-                  Стартовый параметр (по умолчанию):
-                </label>
+                <label className="block text-xs font-mono text-gray-300 mb-1">Стартовый параметр (по умолчанию):</label>
                 <input
                   type="text"
                   value={formData.defaultStartParam}
-                  onChange={(e) => setFormData({ ...formData, defaultStartParam: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      defaultStartParam: e.target.value,
+                    })
+                  }
                   placeholder="landing"
                   className="w-full px-3 py-2 rounded-lg bg-gray-950 border border-gray-700 text-white font-mono text-sm focus:border-[#A8B5A0] outline-none"
                 />
@@ -138,7 +133,12 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
               <input
                 type="checkbox"
                 checked={formData.showAnnouncement}
-                onChange={(e) => setFormData({ ...formData, showAnnouncement: e.target.checked })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    showAnnouncement: e.target.checked,
+                  })
+                }
                 className="w-4 h-4 accent-[#A8B5A0] rounded"
               />
             </div>
@@ -159,16 +159,12 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
               <Sparkles className="w-4 h-4 text-[#A8B5A0]" />
               <span>Редактирование цен тарифов (₽)</span>
             </h4>
-            <p className="text-xs text-gray-400">
-              Цены мгновенно обновятся во всех карточках лендинга:
-            </p>
+            <p className="text-xs text-gray-400">Цены мгновенно обновятся во всех карточках лендинга:</p>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {formData.pricing.map((plan: PricingPlan) => (
                 <div key={plan.id} className="p-2.5 rounded-lg bg-gray-950 border border-gray-800 space-y-1">
-                  <span className="text-[11px] font-mono text-gray-400 block truncate">
-                    {plan.name}
-                  </span>
+                  <span className="text-[11px] font-mono text-gray-400 block truncate">{plan.name}</span>
                   <div className="flex items-center gap-1">
                     <input
                       type="number"
@@ -221,7 +217,6 @@ export const AdminSettingsModal: React.FC<AdminSettingsModalProps> = ({
               </button>
             </div>
           </div>
-
         </form>
       </div>
     </div>

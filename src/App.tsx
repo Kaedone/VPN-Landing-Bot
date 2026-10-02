@@ -38,10 +38,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#0b0f19] text-[#f3f4f6] flex flex-col font-sans selection:bg-[#A8B5A0]/20 selection:text-[#A8B5A0]">
       {/* Top Navbar */}
-      <Header 
-        settings={settings} 
-        onOpenSettings={() => setIsSettingsOpen(true)} 
-      />
+      <Header settings={settings} onOpenSettings={() => setIsSettingsOpen(true)} />
 
       {/* Main Content Flow */}
       <main className="flex-1">
@@ -64,10 +61,7 @@ export default function App() {
         <VerifySection />
 
         {/* Exact Pricing Matching the Bot Screenshot */}
-        <PricingSection 
-          settings={settings} 
-          onOpenSettings={() => setIsSettingsOpen(true)} 
-        />
+        <PricingSection settings={settings} onOpenSettings={() => setIsSettingsOpen(true)} />
 
         {/* 3 Step Setup Guide in Happ / INCY */}
         <SetupSteps settings={settings} />
@@ -80,10 +74,7 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <Footer 
-        settings={settings} 
-        onOpenSettings={() => setIsSettingsOpen(true)} 
-      />
+      <Footer settings={settings} onOpenSettings={() => setIsSettingsOpen(true)} />
 
       {/* Owner Admin Settings Modal */}
       <AdminSettingsModal
