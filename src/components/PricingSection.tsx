@@ -15,7 +15,6 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ settings, onOpen
   return (
     <section id="pricing" className="py-16 sm:py-24 bg-[#0b0f19] border-t border-gray-800/80 relative">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-        
         {/* Header */}
         <div className="text-center space-y-4 max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#131b26] border border-[#A8B5A0]/40 text-xs font-mono text-[#A8B5A0]">
@@ -28,7 +27,9 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ settings, onOpen
           </h2>
 
           <p className="text-gray-400 text-base sm:text-lg">
-            Доступ активируется мгновенно в Telegram. Оплата через <strong className="text-white">Telegram Stars ⭐</strong> — никаких номеров карт и записей в банковских выписках.
+            Доступ активируется мгновенно в Telegram. Оплата через{' '}
+            <strong className="text-white">Telegram Stars ⭐</strong> — никаких номеров карт и записей в банковских
+            выписках.
           </p>
 
           {/* Official terms box from user's bot */}
@@ -86,16 +87,10 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ settings, onOpen
                       {plan.name}
                     </span>
                     <div className="mt-2 flex items-baseline justify-center gap-1">
-                      <span className="text-3xl sm:text-4xl font-black text-white">
-                        {plan.price}
-                      </span>
-                      <span className="text-base font-bold text-gray-300">
-                        {plan.currency}
-                      </span>
+                      <span className="text-3xl sm:text-4xl font-black text-white">{plan.price}</span>
+                      <span className="text-base font-bold text-gray-300">{plan.currency}</span>
                     </div>
-                    <span className="text-xs text-gray-400 mt-1 block">
-                      {plan.periodLabel}
-                    </span>
+                    <span className="text-xs text-gray-400 mt-1 block">{plan.periodLabel}</span>
                   </div>
 
                   {/* Highlight */}
@@ -152,16 +147,16 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ settings, onOpen
                   >
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <span className="text-base font-bold text-white flex items-center gap-2">
-                          {plan.name}
-                        </span>
+                        <span className="text-base font-bold text-white flex items-center gap-2">{plan.name}</span>
                         <span className="px-2.5 py-0.5 rounded text-[11px] font-mono bg-[#A8B5A0]/15 text-[#A8B5A0] border border-[#A8B5A0]/30">
                           {plan.badge || 'Спецпакет'}
                         </span>
                       </div>
 
                       <div className="flex items-baseline gap-2">
-                        <span className="text-3xl font-black text-white">{plan.price} {plan.currency}</span>
+                        <span className="text-3xl font-black text-white">
+                          {plan.price} {plan.currency}
+                        </span>
                         <span className="text-xs text-gray-400 font-mono">/ {plan.duration}</span>
                       </div>
 
@@ -205,7 +200,6 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ settings, onOpen
             <span>Нужно изменить цены или ссылку на бота? Открой настройки панели</span>
           </button>
         </div>
-
       </div>
     </section>
   );

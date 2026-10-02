@@ -43,7 +43,6 @@ export const FaqSection: React.FC = () => {
   return (
     <section id="faq" className="py-16 sm:py-24 bg-[#0b0f19] border-t border-gray-800/80">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-        
         {/* Header */}
         <div className="text-center space-y-4">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#131b26] border border-[#A8B5A0]/40 text-xs font-mono text-[#A8B5A0]">
@@ -76,7 +75,9 @@ export const FaqSection: React.FC = () => {
                   <span className="text-base sm:text-lg font-bold text-white group-hover:text-[#A8B5A0] transition-colors">
                     {faq.q}
                   </span>
-                  <div className={`p-2 rounded-lg bg-gray-800/80 text-gray-400 group-hover:text-[#A8B5A0] transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180 text-[#A8B5A0]' : ''}`}>
+                  <div
+                    className={`p-2 rounded-lg bg-gray-800/80 text-gray-400 group-hover:text-[#A8B5A0] transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180 text-[#A8B5A0]' : ''}`}
+                  >
                     <ChevronDown className="w-4 h-4" />
                   </div>
                 </button>
@@ -90,7 +91,6 @@ export const FaqSection: React.FC = () => {
             );
           })}
         </div>
-
       </div>
     </section>
   );

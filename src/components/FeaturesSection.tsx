@@ -1,14 +1,5 @@
 import React from 'react';
-import { 
-  Shield, 
-  Smartphone, 
-  Radio, 
-  EyeOff, 
-  CreditCard, 
-  Layers, 
-  Sparkles,
-  Server
-} from 'lucide-react';
+import { Shield, Smartphone, Radio, EyeOff, CreditCard, Layers, Sparkles, Server } from 'lucide-react';
 import { SiteSettings } from '../types/vpn';
 
 interface FeaturesSectionProps {
@@ -58,7 +49,6 @@ export const FeaturesSection: React.FC<FeaturesSectionProps> = () => {
   return (
     <section id="features" className="py-16 sm:py-24 bg-[#0d131f] border-t border-gray-800/80">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-        
         {/* Header */}
         <div className="text-center space-y-4 max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#131b26] border border-[#A8B5A0]/40 text-xs font-mono text-[#A8B5A0]">
@@ -67,12 +57,12 @@ export const FeaturesSection: React.FC<FeaturesSectionProps> = () => {
           </div>
 
           <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
-            Сделано специально под задачи{' '}
-            <span className="text-[#A8B5A0]">моделей и стримеров</span>
+            Сделано специально под задачи <span className="text-[#A8B5A0]">моделей и стримеров</span>
           </h2>
 
           <p className="text-gray-400 text-base sm:text-lg">
-            Обычные VPN создаются для просмотра сайтов в кафе. AdultVPN спроектирован для бесперебойных трансляций, защиты приватности и сокрытия стримов от посторонних глаз.
+            Обычные VPN создаются для просмотра сайтов в кафе. AdultVPN спроектирован для бесперебойных трансляций,
+            защиты приватности и сокрытия стримов от посторонних глаз.
           </p>
         </div>
 
@@ -93,13 +83,9 @@ export const FeaturesSection: React.FC<FeaturesSectionProps> = () => {
                   </span>
                 </div>
 
-                <h3 className="text-lg font-bold text-white group-hover:text-[#A8B5A0] transition-colors">
-                  {f.title}
-                </h3>
+                <h3 className="text-lg font-bold text-white group-hover:text-[#A8B5A0] transition-colors">{f.title}</h3>
 
-                <p className="text-sm text-gray-400 leading-relaxed">
-                  {f.desc}
-                </p>
+                <p className="text-sm text-gray-400 leading-relaxed">{f.desc}</p>
               </div>
 
               <div className="pt-4 border-t border-gray-800/80 flex items-center justify-between text-xs text-gray-500 font-mono">
@@ -109,7 +95,6 @@ export const FeaturesSection: React.FC<FeaturesSectionProps> = () => {
             </div>
           ))}
         </div>
-
       </div>
     </section>
   );

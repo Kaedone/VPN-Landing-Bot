@@ -5,7 +5,6 @@ export const VerifySection: React.FC = () => {
   return (
     <section id="verify" className="py-16 sm:py-24 bg-[#0d131f] border-t border-gray-800/80">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
-        
         {/* Header */}
         <div className="text-center space-y-4">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#131b26] border border-[#A8B5A0]/40 text-xs font-mono text-[#A8B5A0]">
@@ -18,13 +17,13 @@ export const VerifySection: React.FC = () => {
           </h2>
 
           <p className="text-gray-400 text-base sm:text-lg max-w-2xl mx-auto">
-            Мы не просим слепо доверять маркетингу. Подключи конфиг в Happ или INCY и проверь чистоту соединения через независимые мировые сканеры утечек.
+            Мы не просим слепо доверять маркетингу. Подключи конфиг в Happ или INCY и проверь чистоту соединения через
+            независимые мировые сканеры утечек.
           </p>
         </div>
 
         {/* Verification Cards */}
         <div className="grid md:grid-cols-2 gap-6">
-          
           {/* Card 1: Iphey */}
           <div className="p-6 sm:p-7 rounded-2xl bg-gray-900/60 border border-gray-800 flex flex-col justify-between space-y-6 hover:border-[#A8B5A0]/50 transition-colors">
             <div className="space-y-3">
@@ -34,7 +33,9 @@ export const VerifySection: React.FC = () => {
               </div>
               <h3 className="text-xl font-bold text-white">Iphey.com</h3>
               <p className="text-sm text-gray-400 leading-relaxed">
-                Показывает реальный IP, геолокацию, DNS-серверы, утечки через WebRTC и уровень доверия систем антифрода к твоему соединению. При подключенном AdultVPN статус: <strong className="text-emerald-400">100% Trustworthy</strong>.
+                Показывает реальный IP, геолокацию, DNS-серверы, утечки через WebRTC и уровень доверия систем антифрода
+                к твоему соединению. При подключенном AdultVPN статус:{' '}
+                <strong className="text-emerald-400">100% Trustworthy</strong>.
               </p>
             </div>
 
@@ -58,7 +59,8 @@ export const VerifySection: React.FC = () => {
               </div>
               <h3 className="text-xl font-bold text-white">DNSLeakTest.com</h3>
               <p className="text-sm text-gray-400 leading-relaxed">
-                Гарантирует, что твои DNS-запросы идут строго через защищенный шифрованный туннель за рубежом, а не через оборудование твоего домашнего провайдера или фильтры СОРМ.
+                Гарантирует, что твои DNS-запросы идут строго через защищенный шифрованный туннель за рубежом, а не
+                через оборудование твоего домашнего провайдера или фильтры СОРМ.
               </p>
             </div>
 
@@ -72,9 +74,7 @@ export const VerifySection: React.FC = () => {
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
           </div>
-
         </div>
-
       </div>
     </section>
   );
