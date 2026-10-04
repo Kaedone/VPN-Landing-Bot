@@ -1,6 +1,7 @@
 /**
  * AdultVPN Conversion & Web Analytics Utility
  * Supports Yandex.Metrika, Google Analytics (gtag), Plausible, and custom Webhooks.
+ * Includes strict Whitelist validation for events and parameters to ensure security and clean data.
  */
 
 declare global {
@@ -13,30 +14,102 @@ declare global {
   }
 }
 
-export interface AnalyticsEventParams {
-  category?: string;
-  label?: string;
-  value?: number;
-  [key: string]: unknown;
+/**
+ * Strict whitelist of allowed analytics event names.
+ */
+export const ALLOWED_EVENTS = [
+  'telegram_bot_click',
+  'audit_started',
+  'audit_completed',
+  'killswitch_simulated',
+  'server_selected',
+  'pricing_plan_selected',
+  'language_changed',
+  'modal_opened',
+  'test_event',
+] as const;
+
+export type AllowedEvent = (typeof ALLOWED_EVENTS)[number];
+
+/**
+ * Strict whitelist of allowed parameter keys.
+ */
+export const ALLOWED_PARAM_KEYS = [
+  'category',
+  'label',
+  'value',
+  'extra_param',
+  'platform',
+  'risk_level',
+  'source',
+  'key',
+] as const;
+
+export type AllowedParamKey = (typeof ALLOWED_PARAM_KEYS)[number];
+
+export type AnalyticsEventParams = Partial<Record<AllowedParamKey, string | number | boolean>>;
+
+/**
+ * Whitelist sanitizer to prevent parameter pollution, PII leakage, or invalid types.
+ */
+export function sanitizeAnalyticsParams(params: Record<string, unknown>): AnalyticsEventParams {
+  const sanitized: AnalyticsEventParams = {};
+  const allowedSet = new Set<string>(ALLOWED_PARAM_KEYS);
+
+  for (const [key, rawVal] of Object.entries(params)) {
+    if (!allowedSet.has(key)) {
+      continue; // Filter out any key not in the whitelist
+    }
+
+    const paramKey = key as AllowedParamKey;
+
+    if (typeof rawVal === 'number' && Number.isFinite(rawVal)) {
+      sanitized[paramKey] = rawVal;
+    } else if (typeof rawVal === 'boolean') {
+      sanitized[paramKey] = rawVal;
+    } else if (typeof rawVal === 'string') {
+      // Strip control characters, truncate to 120 chars max for telemetry safety
+      const cleanStr = rawVal.replace(/[<>'"\\]/g, '').trim().slice(0, 120);
+      sanitized[paramKey] = cleanStr;
+    }
+  }
+
+  return sanitized;
 }
 
 /**
- * Universal event dispatcher for conversions & creator interactions
+ * Validates if an event name is strictly permitted.
  */
-export const trackEvent = (eventName: string, params: AnalyticsEventParams = {}) => {
+export function isAllowedEvent(eventName: string): eventName is AllowedEvent {
+  return (ALLOWED_EVENTS as readonly string[]).includes(eventName);
+}
+
+/**
+ * Universal event dispatcher for conversions & creator interactions with whitelist validation.
+ */
+export const trackEvent = (eventName: string, params: Record<string, unknown> = {}): boolean => {
   try {
+    if (!isAllowedEvent(eventName)) {
+      if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
+        console.warn(`[Analytics Whitelist Rejected] Event "${eventName}" is not in the allowed events list.`);
+      }
+      return false;
+    }
+
+    const safeParams = sanitizeAnalyticsParams(params);
+
     // 1. Console log in dev mode for easy debugging
     if (typeof import.meta !== 'undefined' && import.meta.env?.DEV) {
-      console.log(`[Analytics Event] 👉 ${eventName}`, params);
+      console.log(`[Analytics Event] 👉 ${eventName}`, safeParams);
     }
 
     // 2. Google Analytics 4 (gtag.js)
     if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
       window.gtag('event', eventName, {
-        event_category: params.category || 'conversion',
-        event_label: params.label,
-        value: params.value,
-        ...params,
+        event_category: safeParams.category || 'conversion',
+        event_label: safeParams.label,
+        value: safeParams.value,
+        ...safeParams,
       });
     }
 
@@ -44,16 +117,19 @@ export const trackEvent = (eventName: string, params: AnalyticsEventParams = {})
     if (typeof window !== 'undefined' && typeof window.ym === 'function') {
       const ymId = window.YM_COUNTER_ID;
       if (ymId) {
-        window.ym(ymId, 'reachGoal', eventName, params);
+        window.ym(ymId, 'reachGoal', eventName, safeParams);
       }
     }
 
     // 4. Plausible Analytics (privacy-friendly)
     if (typeof window !== 'undefined' && typeof window.plausible === 'function') {
-      window.plausible(eventName, { props: params });
+      window.plausible(eventName, { props: safeParams });
     }
+
+    return true;
   } catch (err) {
     console.warn('[Analytics Error]', err);
+    return false;
   }
 };
 
@@ -62,7 +138,7 @@ export const trackEvent = (eventName: string, params: AnalyticsEventParams = {})
  */
 
 export const trackTelegramClick = (source: string, extraParam?: string) => {
-  trackEvent('telegram_bot_click', {
+  return trackEvent('telegram_bot_click', {
     category: 'engagement',
     label: `source_${source}`,
     extra_param: extraParam || 'none',
@@ -70,29 +146,30 @@ export const trackTelegramClick = (source: string, extraParam?: string) => {
 };
 
 export const trackAuditStarted = () => {
-  trackEvent('audit_started', {
+  return trackEvent('audit_started', {
     category: 'funnel',
     label: 'step_1',
   });
 };
 
 export const trackAuditCompleted = (platform: string, riskLevel: string) => {
-  trackEvent('audit_completed', {
+  return trackEvent('audit_completed', {
     category: 'funnel',
     label: riskLevel,
     platform: platform,
+    risk_level: riskLevel,
   });
 };
 
 export const trackKillSwitchSimulation = (state: 'dropped' | 'connected') => {
-  trackEvent('killswitch_simulated', {
+  return trackEvent('killswitch_simulated', {
     category: 'interactive_demo',
     label: state === 'dropped' ? 'wifi_dropped' : 'tunnel_restored',
   });
 };
 
 export const trackServerSelected = (city: string, ping: number) => {
-  trackEvent('server_selected', {
+  return trackEvent('server_selected', {
     category: 'topology_map',
     label: city,
     value: ping,
@@ -100,7 +177,7 @@ export const trackServerSelected = (city: string, ping: number) => {
 };
 
 export const trackPlanSelected = (planName: string, price: number) => {
-  trackEvent('pricing_plan_selected', {
+  return trackEvent('pricing_plan_selected', {
     category: 'ecommerce',
     label: planName,
     value: price,
