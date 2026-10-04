@@ -1,26 +1,106 @@
 import React, { useEffect } from 'react';
 import { DEFAULT_SEO, SEOProps } from '../config/seo';
 
-function setMetaTag(selector: string, attrName: string, attrVal: string, content: string): void {
-  if (typeof document === 'undefined') return;
-  let element = document.head.querySelector<HTMLMetaElement>(selector);
-  if (!element) {
-    element = document.createElement('meta');
-    element.setAttribute(attrName, attrVal);
-    document.head.appendChild(element);
-  }
-  element.setAttribute('content', content);
+/**
+ * Safely serializes data to a JSON string suitable for inclusion inside an HTML script tag.
+ * Replaces '<', '>', '&', and Unicode line separators to prevent script breakout / XSS attacks.
+ */
+export function serializeJsonLd(data: unknown): string {
+  return JSON.stringify(data)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
 }
 
-function setLinkTag(rel: string, href: string): void {
+function upsertMeta(attrName: 'name' | 'property', attrVal: string, content: string | undefined): void {
   if (typeof document === 'undefined') return;
-  let element = document.head.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`);
-  if (!element) {
-    element = document.createElement('link');
-    element.setAttribute('rel', rel);
-    document.head.appendChild(element);
+  const selector = `meta[${attrName}="${attrVal}"]`;
+  const existingElements = Array.from(document.head.querySelectorAll<HTMLMetaElement>(selector));
+
+  if (!content) {
+    existingElements.forEach((el) => el.remove());
+    return;
   }
-  element.setAttribute('href', href);
+
+  if (existingElements.length > 0) {
+    existingElements[0].setAttribute('content', content);
+    for (let i = 1; i < existingElements.length; i++) {
+      existingElements[i].remove();
+    }
+  } else {
+    const meta = document.createElement('meta');
+    meta.setAttribute(attrName, attrVal);
+    meta.setAttribute('content', content);
+    document.head.appendChild(meta);
+  }
+}
+
+function upsertCanonical(href: string | undefined): void {
+  if (typeof document === 'undefined') return;
+  const existingElements = Array.from(document.head.querySelectorAll<HTMLLinkElement>('link[rel="canonical"]'));
+
+  if (!href) {
+    existingElements.forEach((el) => el.remove());
+    return;
+  }
+
+  if (existingElements.length > 0) {
+    existingElements[0].setAttribute('href', href);
+    for (let i = 1; i < existingElements.length; i++) {
+      existingElements[i].remove();
+    }
+  } else {
+    const link = document.createElement('link');
+    link.setAttribute('rel', 'canonical');
+    link.setAttribute('href', href);
+    document.head.appendChild(link);
+  }
+}
+
+function upsertTitle(title: string): void {
+  if (typeof document === 'undefined') return;
+  document.title = title;
+
+  const existingTitles = Array.from(document.head.querySelectorAll('title'));
+  if (existingTitles.length > 0) {
+    existingTitles[0].textContent = title;
+    for (let i = 1; i < existingTitles.length; i++) {
+      existingTitles[i].remove();
+    }
+  } else {
+    const titleEl = document.createElement('title');
+    titleEl.textContent = title;
+    document.head.appendChild(titleEl);
+  }
+}
+
+function upsertJsonLd(scriptId: string, data: Record<string, unknown> | undefined): void {
+  if (typeof document === 'undefined') return;
+  const selector = `script#${scriptId}`;
+  const existingElements = Array.from(document.head.querySelectorAll<HTMLScriptElement>(selector));
+
+  if (!data) {
+    existingElements.forEach((el) => el.remove());
+    return;
+  }
+
+  const safeJson = serializeJsonLd(data);
+
+  if (existingElements.length > 0) {
+    existingElements[0].type = 'application/ld+json';
+    existingElements[0].textContent = safeJson;
+    for (let i = 1; i < existingElements.length; i++) {
+      existingElements[i].remove();
+    }
+  } else {
+    const script = document.createElement('script');
+    script.id = scriptId;
+    script.type = 'application/ld+json';
+    script.textContent = safeJson;
+    document.head.appendChild(script);
+  }
 }
 
 export const SEO: React.FC<SEOProps> = ({
@@ -43,62 +123,34 @@ export const SEO: React.FC<SEOProps> = ({
   const effectiveCanonical =
     canonicalUrl || (typeof window !== 'undefined' ? window.location.origin + window.location.pathname : '');
 
-  // Synchronize with DOM for client-side navigation / SPA
   useEffect(() => {
-    if (typeof document === 'undefined') return;
-
-    // Document Title
-    document.title = title;
+    // Title
+    upsertTitle(title);
 
     // Standard Meta
-    setMetaTag('meta[name="description"]', 'name', 'description', description);
-    if (keywords && keywords.length > 0) {
-      setMetaTag('meta[name="keywords"]', 'name', 'keywords', keywords.join(', '));
-    }
+    upsertMeta('name', 'description', description);
+    upsertMeta('name', 'keywords', keywords && keywords.length > 0 ? keywords.join(', ') : undefined);
+    upsertMeta('name', 'robots', noindex ? 'noindex, nofollow' : undefined);
 
-    // Robots
-    if (noindex) {
-      setMetaTag('meta[name="robots"]', 'name', 'robots', 'noindex, nofollow');
-    } else {
-      const robots = document.head.querySelector('meta[name="robots"]');
-      if (robots) robots.remove();
-    }
-
-    // Canonical
-    if (effectiveCanonical) {
-      setLinkTag('canonical', effectiveCanonical);
-      setMetaTag('meta[property="og:url"]', 'property', 'og:url', effectiveCanonical);
-    }
+    // Canonical & URL
+    upsertCanonical(effectiveCanonical);
+    upsertMeta('property', 'og:url', effectiveCanonical);
 
     // OpenGraph
-    setMetaTag('meta[property="og:title"]', 'property', 'og:title', ogTitle);
-    setMetaTag('meta[property="og:description"]', 'property', 'og:description', ogDescription);
-    setMetaTag('meta[property="og:type"]', 'property', 'og:type', ogType);
-    setMetaTag('meta[property="og:site_name"]', 'property', 'og:site_name', ogSiteName);
-    if (ogImage) {
-      setMetaTag('meta[property="og:image"]', 'property', 'og:image', ogImage);
-    }
+    upsertMeta('property', 'og:title', ogTitle);
+    upsertMeta('property', 'og:description', ogDescription);
+    upsertMeta('property', 'og:type', ogType);
+    upsertMeta('property', 'og:site_name', ogSiteName);
+    upsertMeta('property', 'og:image', ogImage);
 
-    // Twitter Card
-    setMetaTag('meta[name="twitter:card"]', 'name', 'twitter:card', twitterCard);
-    setMetaTag('meta[name="twitter:title"]', 'name', 'twitter:title', twitterTitle);
-    setMetaTag('meta[name="twitter:description"]', 'name', 'twitter:description', twitterDescription);
-    if (twitterImage) {
-      setMetaTag('meta[name="twitter:image"]', 'name', 'twitter:image', twitterImage);
-    }
+    // Twitter Cards
+    upsertMeta('name', 'twitter:card', twitterCard);
+    upsertMeta('name', 'twitter:title', twitterTitle);
+    upsertMeta('name', 'twitter:description', twitterDescription);
+    upsertMeta('name', 'twitter:image', twitterImage);
 
     // Schema.org Structured Data (JSON-LD)
-    if (structuredData) {
-      const scriptId = 'schema-structured-data';
-      let script = document.head.querySelector<HTMLScriptElement>(`#${scriptId}`);
-      if (!script) {
-        script = document.createElement('script');
-        script.id = scriptId;
-        script.type = 'application/ld+json';
-        document.head.appendChild(script);
-      }
-      script.textContent = JSON.stringify(structuredData);
-    }
+    upsertJsonLd('schema-structured-data', structuredData);
   }, [
     title,
     description,
@@ -117,36 +169,5 @@ export const SEO: React.FC<SEOProps> = ({
     structuredData,
   ]);
 
-  return (
-    <>
-      <title>{title}</title>
-      <meta name="description" content={description} />
-      {keywords && keywords.length > 0 && <meta name="keywords" content={keywords.join(', ')} />}
-      {noindex && <meta name="robots" content="noindex, nofollow" />}
-      {effectiveCanonical && <link rel="canonical" href={effectiveCanonical} />}
-
-      {/* OpenGraph */}
-      <meta property="og:title" content={ogTitle} />
-      <meta property="og:description" content={ogDescription} />
-      <meta property="og:type" content={ogType} />
-      <meta property="og:site_name" content={ogSiteName} />
-      {effectiveCanonical && <meta property="og:url" content={effectiveCanonical} />}
-      {ogImage && <meta property="og:image" content={ogImage} />}
-
-      {/* Twitter Cards */}
-      <meta name="twitter:card" content={twitterCard} />
-      <meta name="twitter:title" content={twitterTitle} />
-      <meta name="twitter:description" content={twitterDescription} />
-      {twitterImage && <meta name="twitter:image" content={twitterImage} />}
-
-      {/* Schema.org Structured Data */}
-      {structuredData && (
-        <script
-          id="schema-structured-data"
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
-        />
-      )}
-    </>
-  );
+  return null;
 };
