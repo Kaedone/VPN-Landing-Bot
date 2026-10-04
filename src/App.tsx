@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { SiteSettings } from './types/vpn';
+import { SEO } from './components/SEO';
 import { loadSiteSettings, saveSiteSettings } from './config/defaultSettings';
 import { Header } from './components/Header';
 import { Hero } from './components/Hero';
@@ -38,6 +39,10 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#0b0f19] text-[#f3f4f6] flex flex-col font-sans selection:bg-[#A8B5A0]/20 selection:text-[#A8B5A0]">
+      <SEO
+        title={(settings.brandName || "AdultVPN") + " — Защищенный VPN для моделей, стримеров и создателей контента"}
+        ogSiteName={settings.brandName || "AdultVPN"}
+      />
       {/* Top Navbar */}
       <Header settings={settings} onOpenSettings={() => setIsSettingsOpen(true)} />
 
