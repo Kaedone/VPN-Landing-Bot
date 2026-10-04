@@ -178,7 +178,12 @@ export function resetSiteSettings(): SiteSettings {
 }
 
 export function buildTelegramLink(botUsername: string, startParam?: string): string {
-  const cleanUsername = botUsername.replace(/^@/, '').trim() || 'AdultVPN_bot';
-  const param = startParam?.trim() || 'landing';
-  return `https://t.me/${cleanUsername}?start=${encodeURIComponent(param)}`;
+  const cleanUsername = (botUsername || '').trim().replace(/^@+/, '').trim() || 'AdultVPN_bot';
+  if (startParam === undefined || startParam === null) {
+    return `https://t.me/${cleanUsername}?start=landing`;
+  }
+  const cleanParam = startParam.trim();
+  return cleanParam
+    ? `https://t.me/${cleanUsername}?start=${encodeURIComponent(cleanParam)}`
+    : `https://t.me/${cleanUsername}`;
 }
