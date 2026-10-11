@@ -42,6 +42,19 @@ export default function App() {
     const loaded = loadSiteSettings();
     setSettings(loaded);
 
+    // Fetch latest authoritative settings from server
+    fetch('/api/settings')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.data) {
+          setSettings(data.data);
+          saveSiteSettings(data.data);
+        }
+      })
+      .catch(() => {
+        // Dev / offline mode fallback
+      });
+
     // Sync route on browser navigation (back/forward)
     const handleLocationChange = () => {
       const path = window.location.pathname.toLowerCase();

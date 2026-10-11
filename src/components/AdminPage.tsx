@@ -8,15 +8,17 @@ import {
   Upload,
   Sliders,
   DollarSign,
-  KeyRound,
+  ShieldCheck,
   CheckCircle2,
   AlertCircle,
   Eye,
   EyeOff,
   LogOut,
+  History,
+  Timer,
 } from 'lucide-react';
 import { SiteSettings, PricingPlan } from '../types/vpn';
-import { resetSiteSettings, buildTelegramLink } from '../config/defaultSettings';
+import { buildTelegramLink } from '../config/defaultSettings';
 
 interface AdminPageProps {
   settings: SiteSettings;
@@ -24,62 +26,238 @@ interface AdminPageProps {
   onBack: () => void;
 }
 
-const PIN_STORAGE_KEY = 'adultvpn_admin_pin';
-const AUTH_STORAGE_KEY = 'adultvpn_admin_authenticated';
-const DEFAULT_PIN = 'admin2026';
+const TOKEN_STORAGE_KEY = 'adultvpn_admin_jwt';
+const LOCKOUT_STORAGE_KEY = 'adultvpn_admin_lockout_until';
 
 export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return sessionStorage.getItem(AUTH_STORAGE_KEY) === 'true';
+  const [token, setToken] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return sessionStorage.getItem(TOKEN_STORAGE_KEY);
   });
 
-  const [pinInput, setPinInput] = useState('');
-  const [pinError, setPinError] = useState('');
-  const [showPin, setShowPin] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // New PIN management inside dashboard
-  const [newPin, setNewPin] = useState('');
-  const [confirmNewPin, setConfirmNewPin] = useState('');
-  const [pinChangeMessage, setPinChangeMessage] = useState({ text: '', type: '' });
+  // Rate limit lockout state
+  const [lockoutSeconds, setLockoutSeconds] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0;
+    const stored = sessionStorage.getItem(LOCKOUT_STORAGE_KEY);
+    if (!stored) return 0;
+    const unlockAtMs = parseInt(stored, 10);
+    const diff = Math.ceil((unlockAtMs - Date.now()) / 1000);
+    return diff > 0 ? diff : 0;
+  });
 
   // Settings form state
-  const [activeTab, setActiveTab] = useState<'general' | 'pricing' | 'security' | 'backup'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'pricing' | 'history' | 'backup'>('general');
   const [formData, setFormData] = useState<SiteSettings>({ ...settings });
+  const [settingsVersion, setSettingsVersion] = useState<number>(1);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
+  // Password confirmation modal for critical bot link change
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
+
+  // History list
+  const [historyList, setHistoryList] = useState<{ id: number; version: number; data: SiteSettings; savedAt: number }[]>([]);
+
+  // Lockout countdown timer
   useEffect(() => {
-    setFormData({ ...settings });
-  }, [settings]);
+    if (lockoutSeconds <= 0) return;
+    const interval = setInterval(() => {
+      setLockoutSeconds((prev) => {
+        if (prev <= 1) {
+          sessionStorage.removeItem(LOCKOUT_STORAGE_KEY);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lockoutSeconds]);
 
-  const getStoredPin = (): string => {
-    if (typeof window === 'undefined') return DEFAULT_PIN;
-    return localStorage.getItem(PIN_STORAGE_KEY) || DEFAULT_PIN;
-  };
+  // Check existing session token on mount
+  useEffect(() => {
+    if (!token) return;
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    const storedPin = getStoredPin();
-    if (pinInput.trim() === storedPin) {
-      setIsAuthenticated(true);
-      sessionStorage.setItem(AUTH_STORAGE_KEY, 'true');
-      setPinError('');
-    } else {
-      setPinError('Неверный PIN-код');
+    fetch('/api/auth/me', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => {
+        if (!res.ok) {
+          handleLogout();
+        } else {
+          loadServerSettings();
+        }
+      })
+      .catch(() => {
+        // Dev offline fallback
+      });
+  }, [token]);
+
+  const loadServerSettings = async () => {
+    try {
+      const res = await fetch('/api/settings');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && json.version) {
+          setFormData(json.data);
+          setSettingsVersion(json.version);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load server settings:', e);
     }
   };
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    sessionStorage.removeItem(AUTH_STORAGE_KEY);
-    setPinInput('');
+  const loadHistory = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch('/api/settings/history', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setHistoryList(json.history || []);
+      }
+    } catch (e) {
+      console.error('Failed to load history:', e);
+    }
   };
 
-  const handleSave = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    onSave(formData);
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 2500);
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (lockoutSeconds > 0) return;
+    if (!passwordInput.trim()) {
+      setAuthError('Введите пароль администратора');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setAuthError('');
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ password: passwordInput }),
+      });
+
+      const data = await res.json();
+
+      if (res.status === 200 && data.token) {
+        setToken(data.token);
+        sessionStorage.setItem(TOKEN_STORAGE_KEY, data.token);
+        setPasswordInput('');
+        setAuthError('');
+        loadServerSettings();
+      } else if (res.status === 429) {
+        const retryAfter = data.retryAfter || 900;
+        setLockoutSeconds(retryAfter);
+        const unlockMs = Date.now() + retryAfter * 1000;
+        sessionStorage.setItem(LOCKOUT_STORAGE_KEY, String(unlockMs));
+        setAuthError(data.error || 'Слишком много попыток. Вход заблокирован на 15 минут.');
+      } else if (res.status === 503) {
+        setAuthError('Серверная конфигурация безопасности не завершена (ADMIN_PASSWORD_HASH не задан).');
+      } else {
+        setAuthError(data.error || 'Неверный пароль администратора');
+      }
+    } catch {
+      setAuthError('Ошибка подключения к серверу авторизации');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    if (token) {
+      try {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch {
+        // ignore
+      }
+    }
+    setToken(null);
+    sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+    setPasswordInput('');
+  };
+
+  const handleSave = async (confirmedPassword?: string) => {
+    setSaveError('');
+    setSaveSuccess(false);
+
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          version: settingsVersion,
+          data: formData,
+          confirmPassword: confirmedPassword,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (res.status === 200 && result.success) {
+        setSettingsVersion(result.version);
+        onSave(result.data || formData);
+        setSaveSuccess(true);
+        setShowConfirmModal(false);
+        setConfirmPasswordInput('');
+        setConfirmPasswordError('');
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } else if (res.status === 401 && result.requiresPasswordConfirmation) {
+        setShowConfirmModal(true);
+      } else if (res.status === 401 && confirmedPassword) {
+        setConfirmPasswordError('Неверный пароль подтверждения');
+      } else if (res.status === 409) {
+        setSaveError('Конфликт версий: настройки были изменены в другой вкладке. Обновите страницу.');
+      } else {
+        setSaveError(result.error || 'Ошибка при сохранении настроек');
+      }
+    } catch {
+      // Fallback local save in dev
+      onSave(formData);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2500);
+    }
+  };
+
+  const handleRollback = async (targetVersion: number) => {
+    if (!token) return;
+    try {
+      const res = await fetch('/api/settings/rollback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ targetVersion }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setFormData(data.data);
+        setSettingsVersion(data.version);
+        onSave(data.data);
+        setSaveSuccess(true);
+        loadHistory();
+      }
+    } catch (e) {
+      console.error('Failed to rollback:', e);
+    }
   };
 
   const handlePriceFieldChange = (id: string, field: keyof PricingPlan, value: any) => {
@@ -87,23 +265,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
       ...prev,
       pricing: prev.pricing.map((p) => (p.id === id ? { ...p, [field]: value } : p)),
     }));
-  };
-
-  const handleChangePin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newPin.length < 4) {
-      setPinChangeMessage({ text: 'PIN-код должен содержать минимум 4 символа', type: 'error' });
-      return;
-    }
-    if (newPin !== confirmNewPin) {
-      setPinChangeMessage({ text: 'Введенные PIN-коды не совпадают', type: 'error' });
-      return;
-    }
-    localStorage.setItem(PIN_STORAGE_KEY, newPin);
-    setNewPin('');
-    setConfirmNewPin('');
-    setPinChangeMessage({ text: 'PIN-код успешно изменен!', type: 'success' });
-    setTimeout(() => setPinChangeMessage({ text: '', type: '' }), 3000);
   };
 
   const handleExportJson = () => {
@@ -125,31 +286,25 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
           const parsed = JSON.parse(event.target?.result as string);
           if (parsed.brandName && Array.isArray(parsed.pricing)) {
             setFormData(parsed);
-            onSave(parsed);
-            setSaveSuccess(true);
-            setTimeout(() => setSaveSuccess(false), 2000);
+            handleSave();
           } else {
-            alert('Ошибка: Некорректная структура файла настроек.');
+            setSaveError('Ошибка: Некорректная структура файла настроек.');
           }
         } catch (err) {
-          alert('Ошибка чтения JSON файла: ' + (err as Error).message);
+          setSaveError('Ошибка чтения JSON файла: ' + (err as Error).message);
         }
       };
     }
   };
 
-  const handleResetToDefault = () => {
-    if (confirm('Сбросить все настройки к начальным значениям по умолчанию?')) {
-      const def = resetSiteSettings();
-      setFormData({ ...def });
-      onSave(def);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 2000);
-    }
+  const formatTimer = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
-  // 1. Clean Authorization Screen (NO HINTS, NO DEFAULT PIN TEXT)
-  if (!isAuthenticated) {
+  // 1. Clean Secure Authentication Screen (NO HINTS, NO DEFAULT CREDENTIALS)
+  if (!token) {
     return (
       <div className="min-h-screen bg-[#070a11] text-[#f3f4f6] flex items-center justify-center p-4">
         <div className="w-full max-w-sm bg-[#0b0f19] border border-gray-800 rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
@@ -160,57 +315,86 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
               <Lock className="w-6 h-6" />
             </div>
             <h1 className="text-xl font-black text-white font-mono tracking-tight">Панель администратора</h1>
-            <p className="text-xs text-gray-400">Введите PIN-код для входа</p>
+            <p className="text-xs text-gray-400">Авторизация по паролю</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <div className="relative">
-                <input
-                  type={showPin ? 'text' : 'password'}
-                  value={pinInput}
-                  onChange={(e) => {
-                    setPinInput(e.target.value);
-                    setPinError('');
-                  }}
-                  placeholder="PIN-код"
-                  autoFocus
-                  className="w-full px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-[#A8B5A0] font-mono tracking-widest text-center text-lg"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPin(!showPin)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
-                >
-                  {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+          {lockoutSeconds > 0 ? (
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl bg-red-950/40 border border-red-500/30 text-center space-y-2">
+                <div className="flex items-center justify-center gap-2 text-red-400 font-mono text-sm font-bold">
+                  <Timer className="w-4 h-4 animate-spin" />
+                  <span>Вход заблокирован</span>
+                </div>
+                <p className="text-2xl font-black font-mono text-white tracking-widest">
+                  {formatTimer(lockoutSeconds)}
+                </p>
+                <p className="text-[11px] text-gray-400">
+                  Превышен лимит неудачных попыток. Повторите попытку после истечения таймера.
+                </p>
               </div>
 
-              {pinError && (
-                <div className="flex items-center justify-center gap-1.5 text-xs text-red-400 mt-2 font-mono">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  <span>{pinError}</span>
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={onBack}
+                className="w-full py-2.5 rounded-xl bg-gray-900 border border-gray-800 text-gray-400 hover:text-white text-xs font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Вернуться на сайт</span>
+              </button>
             </div>
+          ) : (
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={passwordInput}
+                    onChange={(e) => {
+                      setPasswordInput(e.target.value);
+                      setAuthError('');
+                    }}
+                    placeholder="Пароль"
+                    autoFocus
+                    disabled={isSubmitting}
+                    className="w-full px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-[#A8B5A0] font-mono tracking-wider text-center text-base"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                    aria-label="Toggle password visibility"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
 
-            <button
-              type="submit"
-              className="w-full py-3 rounded-xl bg-[#A8B5A0] hover:bg-[#96a48e] text-[#0b0f19] font-bold text-sm shadow-lg shadow-[#A8B5A0]/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Lock className="w-4 h-4" />
-              <span>Войти</span>
-            </button>
+                {authError && (
+                  <div className="flex items-center justify-center gap-1.5 text-xs text-red-400 mt-2 font-mono text-center">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{authError}</span>
+                  </div>
+                )}
+              </div>
 
-            <button
-              type="button"
-              onClick={onBack}
-              className="w-full py-2 text-gray-500 hover:text-gray-300 text-xs font-mono transition-all flex items-center justify-center gap-1.5"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Вернуться на сайт</span>
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full py-3 rounded-xl bg-[#A8B5A0] hover:bg-[#96a48e] text-[#0b0f19] font-bold text-sm shadow-lg shadow-[#A8B5A0]/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <Lock className="w-4 h-4" />
+                <span>{isSubmitting ? 'Проверка...' : 'Войти'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={onBack}
+                className="w-full py-2 text-gray-500 hover:text-gray-300 text-xs font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Вернуться на сайт</span>
+              </button>
+            </form>
+          )}
         </div>
       </div>
     );
@@ -236,7 +420,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
               {formData.brandName}
             </span>
             <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#A8B5A0]/20 text-[#A8B5A0] border border-[#A8B5A0]/30 uppercase font-semibold">
-              Панель управления
+              v{settingsVersion}
             </span>
           </div>
         </div>
@@ -246,6 +430,13 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
             <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-mono bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-lg animate-in fade-in">
               <CheckCircle2 className="w-4 h-4" />
               <span>Сохранено!</span>
+            </div>
+          )}
+
+          {saveError && (
+            <div className="flex items-center gap-1.5 text-xs text-red-400 font-mono bg-red-500/10 border border-red-500/30 px-3 py-1.5 rounded-lg animate-in fade-in">
+              <AlertCircle className="w-4 h-4" />
+              <span>{saveError}</span>
             </div>
           )}
 
@@ -297,15 +488,18 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
           </button>
 
           <button
-            onClick={() => setActiveTab('security')}
+            onClick={() => {
+              setActiveTab('history');
+              loadHistory();
+            }}
             className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-mono flex items-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'security'
+              activeTab === 'history'
                 ? 'bg-[#131b26] text-[#A8B5A0] border border-[#A8B5A0]/40 font-bold'
                 : 'text-gray-400 hover:text-white hover:bg-gray-900'
             }`}
           >
-            <KeyRound className="w-4 h-4" />
-            <span>Безопасность (PIN)</span>
+            <History className="w-4 h-4" />
+            <span>История версий</span>
           </button>
 
           <button
@@ -317,7 +511,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
             }`}
           >
             <Download className="w-4 h-4" />
-            <span>Резервная копия & Сброс</span>
+            <span>Резервная копия & Экспорт</span>
           </button>
         </div>
 
@@ -347,7 +541,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-gray-300 mb-1.5">Юзернейм бота в Telegram</label>
+                <label className="block text-xs font-mono text-gray-300 mb-1.5">
+                  Юзернейм бота в Telegram <span className="text-amber-400 font-sans text-[11px]">(требует подтверждения паролем)</span>
+                </label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 font-mono text-sm">@</span>
                   <input
@@ -366,7 +562,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
                   type="text"
                   value={formData.defaultStartParam}
                   onChange={(e) => setFormData({ ...formData, defaultStartParam: e.target.value })}
-                  placeholder="web_funnel_2026"
+                  placeholder="landing"
                   className="w-full px-4 py-2.5 rounded-xl bg-gray-900 border border-gray-800 text-white focus:outline-none focus:border-[#A8B5A0] font-mono text-sm"
                 />
                 <p className="text-[11px] text-gray-500 font-mono mt-1">
@@ -375,12 +571,14 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-gray-300 mb-1.5">Ссылка на поддержку в Telegram</label>
+                <label className="block text-xs font-mono text-gray-300 mb-1.5">
+                  Ссылка на поддержку в Telegram <span className="text-amber-400 font-sans text-[11px]">(https://t.me/...)</span>
+                </label>
                 <input
                   type="text"
                   value={formData.supportLink}
                   onChange={(e) => setFormData({ ...formData, supportLink: e.target.value })}
-                  placeholder="https://t.me/adult_support"
+                  placeholder="https://t.me/AdultVPN_bot?start=support"
                   className="w-full px-4 py-2.5 rounded-xl bg-gray-900 border border-gray-800 text-white focus:outline-none focus:border-[#A8B5A0] font-mono text-sm"
                 />
               </div>
@@ -492,76 +690,61 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
           </div>
         )}
 
-        {/* Tab 3: Security & PIN change */}
-        {activeTab === 'security' && (
-          <div className="bg-[#0b0f19] border border-gray-800 rounded-2xl p-6 sm:p-8 space-y-6 max-w-xl">
+        {/* Tab 3: History & Rollback */}
+        {activeTab === 'history' && (
+          <div className="bg-[#0b0f19] border border-gray-800 rounded-2xl p-6 sm:p-8 space-y-6">
             <div>
               <h2 className="text-lg font-bold text-white font-mono flex items-center gap-2">
-                <KeyRound className="w-5 h-5 text-[#A8B5A0]" />
-                <span>Смена PIN-кода администратора</span>
+                <History className="w-5 h-5 text-[#A8B5A0]" />
+                <span>История изменений и мгновенный откат</span>
               </h2>
               <p className="text-xs text-gray-400 mt-1">
-                Установите персональный PIN-код для защиты доступа к панели управления
+                Сервер сохраняет до 20 последних ревизий настроек для защиты от случайных ошибок
               </p>
             </div>
 
-            <form onSubmit={handleChangePin} className="space-y-4">
-              <div>
-                <label className="block text-xs font-mono text-gray-300 mb-1">Новый PIN-код</label>
-                <input
-                  type="password"
-                  value={newPin}
-                  onChange={(e) => setNewPin(e.target.value)}
-                  placeholder="Минимум 4 символа"
-                  className="w-full px-4 py-2.5 rounded-xl bg-gray-900 border border-gray-800 text-white focus:outline-none focus:border-[#A8B5A0] font-mono text-sm"
-                />
+            {historyList.length === 0 ? (
+              <p className="text-xs text-gray-400 font-mono">История пока пуста. При сохранении настроек здесь появятся ревизии.</p>
+            ) : (
+              <div className="space-y-3">
+                {historyList.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="p-4 rounded-xl bg-gray-900/60 border border-gray-800 flex items-center justify-between gap-4"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-white text-sm">Версия {entry.version}</span>
+                        <span className="text-[11px] font-mono text-gray-500">
+                          {new Date(entry.savedAt).toLocaleString('ru-RU')}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Бренд: {entry.data.brandName} • Бот: @{entry.data.botUsername} • Тарифов: {entry.data.pricing.length}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => handleRollback(entry.version)}
+                      className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-[#A8B5A0] hover:text-[#0b0f19] text-xs font-mono text-white transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Откатить</span>
+                    </button>
+                  </div>
+                ))}
               </div>
-
-              <div>
-                <label className="block text-xs font-mono text-gray-300 mb-1">Подтвердите новый PIN-код</label>
-                <input
-                  type="password"
-                  value={confirmNewPin}
-                  onChange={(e) => setConfirmNewPin(e.target.value)}
-                  placeholder="Повторите ввод"
-                  className="w-full px-4 py-2.5 rounded-xl bg-gray-900 border border-gray-800 text-white focus:outline-none focus:border-[#A8B5A0] font-mono text-sm"
-                />
-              </div>
-
-              {pinChangeMessage.text && (
-                <div
-                  className={`text-xs font-mono flex items-center gap-2 p-3 rounded-lg ${
-                    pinChangeMessage.type === 'success'
-                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                      : 'bg-red-500/10 text-red-400 border border-red-500/30'
-                  }`}
-                >
-                  {pinChangeMessage.type === 'success' ? (
-                    <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                  )}
-                  <span>{pinChangeMessage.text}</span>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                className="px-5 py-2.5 rounded-xl bg-[#A8B5A0] hover:bg-[#96a48e] text-[#0b0f19] font-mono text-xs font-bold transition-all cursor-pointer"
-              >
-                Сохранить новый PIN-код
-              </button>
-            </form>
+            )}
           </div>
         )}
 
-        {/* Tab 4: Backup & Reset */}
+        {/* Tab 4: Backup & Export */}
         {activeTab === 'backup' && (
           <div className="bg-[#0b0f19] border border-gray-800 rounded-2xl p-6 sm:p-8 space-y-6">
             <div>
               <h2 className="text-lg font-bold text-white font-mono flex items-center gap-2">
                 <Download className="w-5 h-5 text-[#A8B5A0]" />
-                <span>Резервная копия, экспорт и сброс</span>
+                <span>Резервная копия и экспорт</span>
               </h2>
               <p className="text-xs text-gray-400 mt-1">
                 Сохраняйте копию настроек на свой компьютер или восстанавливайте из файла
@@ -592,7 +775,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
                   <span>Импорт настроек из JSON</span>
                 </h3>
                 <p className="text-xs text-gray-400 leading-relaxed">
-                  Загрузите ранее сохранённый JSON-файл для мгновенного применения настроек.
+                  Загрузите ранее сохранённый JSON-файл для применения настроек.
                 </p>
                 <label className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-white font-mono text-xs cursor-pointer transition-all">
                   <Upload className="w-4 h-4" />
@@ -601,27 +784,79 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
                 </label>
               </div>
             </div>
-
-            <div className="border-t border-gray-800/80 pt-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl bg-red-500/5 border border-red-500/20">
-                <div>
-                  <h4 className="text-sm font-mono font-bold text-red-400">Сброс к заводским настройкам</h4>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    Сбрасывает все тарифы, описания и ссылки к исходным значениям приложения.
-                  </p>
-                </div>
-                <button
-                  onClick={handleResetToDefault}
-                  className="px-4 py-2 rounded-xl bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white font-mono text-xs transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>Сбросить всё</span>
-                </button>
-              </div>
-            </div>
           </div>
         )}
       </div>
+
+      {/* Password Confirmation Modal for critical bot link change */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-[#0b0f19] border border-gray-800 rounded-2xl p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-mono font-bold text-white text-base">Подтверждение паролем</h3>
+                <p className="text-xs text-gray-400">Изменение ссылки или юзернейма бота</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-300 leading-relaxed">
+              Вы меняете целевую ссылку на бота в Telegram. Для защиты от подмены ссылок введите пароль администратора:
+            </p>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSave(confirmPasswordInput);
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <input
+                  type="password"
+                  value={confirmPasswordInput}
+                  onChange={(e) => {
+                    setConfirmPasswordInput(e.target.value);
+                    setConfirmPasswordError('');
+                  }}
+                  placeholder="Пароль администратора"
+                  autoFocus
+                  className="w-full px-4 py-2.5 rounded-xl bg-gray-900 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-[#A8B5A0] font-mono text-sm"
+                />
+
+                {confirmPasswordError && (
+                  <p className="text-xs text-red-400 font-mono mt-1.5 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>{confirmPasswordError}</span>
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowConfirmModal(false);
+                    setConfirmPasswordInput('');
+                    setConfirmPasswordError('');
+                  }}
+                  className="px-4 py-2 rounded-xl bg-gray-900 hover:bg-gray-800 text-gray-400 hover:text-white text-xs font-mono transition-all cursor-pointer"
+                >
+                  Отмена
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-[#A8B5A0] hover:bg-[#96a48e] text-[#0b0f19] font-bold text-xs font-mono transition-all cursor-pointer"
+                >
+                  Подтвердить и сохранить
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
