@@ -1,14 +1,13 @@
 import React from 'react';
-import { Check, Send, Sparkles, Shield, Wifi, Users, Radio, Edit3 } from 'lucide-react';
+import { Check, Send, Sparkles, Shield, Wifi, Users, Radio } from 'lucide-react';
 import { SiteSettings, PricingPlan } from '../types/vpn';
 import { buildTelegramLink } from '../config/defaultSettings';
 
 interface PricingSectionProps {
   settings: SiteSettings;
-  onOpenSettings: () => void;
 }
 
-export const PricingSection: React.FC<PricingSectionProps> = ({ settings, onOpenSettings }) => {
+export const PricingSection: React.FC<PricingSectionProps> = ({ settings }) => {
   const regularPlans = settings.pricing.filter((p) => p.type !== 'special');
   const specialPlans = settings.pricing.filter((p) => p.type === 'special');
 
@@ -190,17 +189,7 @@ export const PricingSection: React.FC<PricingSectionProps> = ({ settings, onOpen
           </div>
         )}
 
-        {/* Admin hint to easily adjust prices if needed */}
-        <div className="text-center pt-2">
-          <button
-            onClick={onOpenSettings}
-            className="text-xs text-gray-500 hover:text-[#A8B5A0] font-mono inline-flex items-center gap-1.5 transition-colors"
-          >
-            <Edit3 className="w-3.5 h-3.5" />
-            <span>Нужно изменить цены или ссылку на бота? Открой настройки панели</span>
-          </button>
-        </div>
-      </div>
+              </div>
     </section>
   );
 };

@@ -20,16 +20,59 @@ import { SetupSteps } from './components/SetupSteps';
 import { FaqSection } from './components/FaqSection';
 import { CtaSection } from './components/CtaSection';
 import { Footer } from './components/Footer';
-import { AdminSettingsModal } from './components/AdminSettingsModal';
+import { AdminPage } from './components/AdminPage';
 
 export default function App() {
   const [settings, setSettings] = useState<SiteSettings>(loadSiteSettings);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Path-based routing for dedicated /admin route
+  const [currentPath, setCurrentPath] = useState<string>(() => {
+    if (typeof window === 'undefined') return '/';
+    const path = window.location.pathname.toLowerCase();
+    const hash = window.location.hash.toLowerCase();
+    const search = window.location.search.toLowerCase();
+    if (path === '/admin' || hash === '#/admin' || hash === '#admin' || search.includes('admin')) {
+      return '/admin';
+    }
+    return '/';
+  });
 
   useEffect(() => {
     // Initial load from local storage
     const loaded = loadSiteSettings();
     setSettings(loaded);
+
+    // Sync route on browser navigation (back/forward)
+    const handleLocationChange = () => {
+      const path = window.location.pathname.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+      const search = window.location.search.toLowerCase();
+      if (path === '/admin' || hash === '#/admin' || hash === '#admin' || search.includes('admin')) {
+        setCurrentPath('/admin');
+      } else {
+        setCurrentPath('/');
+      }
+    };
+
+    window.addEventListener('popstate', handleLocationChange);
+    window.addEventListener('hashchange', handleLocationChange);
+
+    // Secret shortcut for owner: Ctrl + Shift + A (or Cmd + Shift + A)
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'a' || e.key === 'A' || e.key === 'ф' || e.key === 'Ф')) {
+        e.preventDefault();
+        window.history.pushState({}, '', '/admin');
+        setCurrentPath('/admin');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('popstate', handleLocationChange);
+      window.removeEventListener('hashchange', handleLocationChange);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
   const handleSaveSettings = (newSettings: SiteSettings) => {
@@ -37,14 +80,39 @@ export default function App() {
     saveSiteSettings(newSettings);
   };
 
+  const handleNavigateToHome = () => {
+    window.history.pushState({}, '', '/');
+    setCurrentPath('/');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Dedicated Admin Dashboard View
+  if (currentPath === '/admin') {
+    return (
+      <>
+        <SEO
+          title={`${settings.brandName || 'AdultVPN'} — Панель управления`}
+          noindex={true}
+        />
+        <AdminPage
+          settings={settings}
+          onSave={handleSaveSettings}
+          onBack={handleNavigateToHome}
+        />
+      </>
+    );
+  }
+
+  // Public Landing Page (100% clean, no public admin buttons)
   return (
     <div className="min-h-screen bg-[#0b0f19] text-[#f3f4f6] flex flex-col font-sans selection:bg-[#A8B5A0]/20 selection:text-[#A8B5A0]">
       <SEO
-        title={(settings.brandName || "AdultVPN") + " — Защищенный VPN для моделей, стримеров и создателей контента"}
-        ogSiteName={settings.brandName || "AdultVPN"}
+        title={(settings.brandName || 'AdultVPN') + ' — Защищенный VPN для моделей, стримеров и создателей контента'}
+        ogSiteName={settings.brandName || 'AdultVPN'}
       />
+
       {/* Top Navbar */}
-      <Header settings={settings} onOpenSettings={() => setIsSettingsOpen(true)} />
+      <Header settings={settings} />
 
       {/* Main Content Flow */}
       <main className="flex-1">
@@ -69,8 +137,8 @@ export default function App() {
         {/* Verification Section: Iphey & DNSLeakTest */}
         <VerifySection />
 
-        {/* Exact Pricing Matching the Bot Screenshot */}
-        <PricingSection settings={settings} onOpenSettings={() => setIsSettingsOpen(true)} />
+        {/* Exact Pricing Matching the Bot */}
+        <PricingSection settings={settings} />
 
         {/* 3 Step Setup Guide in Happ / INCY */}
         <SetupSteps settings={settings} />
@@ -83,15 +151,7 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <Footer settings={settings} onOpenSettings={() => setIsSettingsOpen(true)} />
-
-      {/* Owner Admin Settings Modal */}
-      <AdminSettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        settings={settings}
-        onSave={handleSaveSettings}
-      />
+      <Footer settings={settings} />
     </div>
   );
 }

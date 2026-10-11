@@ -1,14 +1,13 @@
 import React from 'react';
-import { ShieldCheck, Settings, Lock } from 'lucide-react';
+import { ShieldCheck, Lock } from 'lucide-react';
 import { SiteSettings } from '../types/vpn';
 import { buildTelegramLink } from '../config/defaultSettings';
 
 interface FooterProps {
   settings: SiteSettings;
-  onOpenSettings: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ settings, onOpenSettings }) => {
+export const Footer: React.FC<FooterProps> = ({ settings }) => {
   const currentYear = new Date().getFullYear();
   const botLink = buildTelegramLink(settings.botUsername);
 
@@ -50,13 +49,7 @@ export const Footer: React.FC<FooterProps> = ({ settings, onOpenSettings }) => {
             </a>
           </div>
 
-          <button
-            onClick={onOpenSettings}
-            className="px-3 py-1.5 rounded-lg bg-gray-900 border border-gray-800 text-gray-400 hover:text-[#A8B5A0] hover:border-[#A8B5A0]/40 transition-all flex items-center gap-1.5 font-mono text-xs"
-          >
-            <Settings className="w-3.5 h-3.5" />
-            <span>Панель ссылок бота</span>
-          </button>
+          
         </div>
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
