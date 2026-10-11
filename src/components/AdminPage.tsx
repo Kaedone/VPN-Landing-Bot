@@ -1,20 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Lock,
   ArrowLeft,
   Save,
   RotateCcw,
   Download,
   Upload,
-  KeyRound,
   Sliders,
   DollarSign,
   CheckCircle2,
-  AlertCircle,
-  Eye,
-  EyeOff,
-  LogOut,
-  Sparkles,
 } from 'lucide-react';
 import { SiteSettings, PricingPlan } from '../types/vpn';
 import { resetSiteSettings, buildTelegramLink } from '../config/defaultSettings';
@@ -25,56 +18,15 @@ interface AdminPageProps {
   onBack: () => void;
 }
 
-const PIN_STORAGE_KEY = 'adultvpn_admin_pin';
-const AUTH_STORAGE_KEY = 'adultvpn_admin_authenticated';
-const DEFAULT_PIN = 'admin2026';
-
 export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return sessionStorage.getItem(AUTH_STORAGE_KEY) === 'true';
-  });
-
-  const [pinInput, setPinInput] = useState('');
-  const [pinError, setPinError] = useState('');
-  const [showPin, setShowPin] = useState(false);
-
-  // New PIN management
-  const [newPin, setNewPin] = useState('');
-  const [confirmNewPin, setConfirmNewPin] = useState('');
-  const [pinChangeMessage, setPinChangeMessage] = useState({ text: '', type: '' });
-
   // Settings form state
-  const [activeTab, setActiveTab] = useState<'general' | 'pricing' | 'security' | 'backup'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'pricing' | 'backup'>('general');
   const [formData, setFormData] = useState<SiteSettings>({ ...settings });
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
     setFormData({ ...settings });
   }, [settings]);
-
-  const getStoredPin = (): string => {
-    if (typeof window === 'undefined') return DEFAULT_PIN;
-    return localStorage.getItem(PIN_STORAGE_KEY) || DEFAULT_PIN;
-  };
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    const storedPin = getStoredPin();
-    if (pinInput.trim() === storedPin) {
-      setIsAuthenticated(true);
-      sessionStorage.setItem(AUTH_STORAGE_KEY, 'true');
-      setPinError('');
-    } else {
-      setPinError('Неверный PIN-код администратора');
-    }
-  };
-
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    sessionStorage.removeItem(AUTH_STORAGE_KEY);
-    setPinInput('');
-  };
 
   const handleSave = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -88,23 +40,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
       ...prev,
       pricing: prev.pricing.map((p) => (p.id === id ? { ...p, [field]: value } : p)),
     }));
-  };
-
-  const handleChangePin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newPin.length < 4) {
-      setPinChangeMessage({ text: 'PIN-код должен быть не менее 4 символов', type: 'error' });
-      return;
-    }
-    if (newPin !== confirmNewPin) {
-      setPinChangeMessage({ text: 'Новые PIN-коды не совпадают', type: 'error' });
-      return;
-    }
-    localStorage.setItem(PIN_STORAGE_KEY, newPin);
-    setNewPin('');
-    setConfirmNewPin('');
-    setPinChangeMessage({ text: 'PIN-код администратора успешно обновлён!', type: 'success' });
-    setTimeout(() => setPinChangeMessage({ text: '', type: '' }), 3000);
   };
 
   const handleExportJson = () => {
@@ -149,80 +84,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
     }
   };
 
-  // 1. Authorization Screen
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-[#070a11] text-[#f3f4f6] flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-[#0b0f19] border border-gray-800 rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#A8B5A0] via-emerald-400 to-[#8d9c84]"></div>
-
-          <div className="text-center space-y-3 mb-8">
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-[#131b26] border border-[#A8B5A0]/40 flex items-center justify-center text-[#A8B5A0] shadow-lg shadow-[#A8B5A0]/10">
-              <Lock className="w-7 h-7" />
-            </div>
-            <h1 className="text-2xl font-black text-white font-mono tracking-tight">Панель администратора</h1>
-            <p className="text-xs text-gray-400">
-              Вход защищён PIN-кодом для предотвращения несанкционированного доступа
-            </p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div>
-              <label className="block text-xs font-mono text-gray-300 mb-1.5">PIN-код администратора</label>
-              <div className="relative">
-                <input
-                  type={showPin ? 'text' : 'password'}
-                  value={pinInput}
-                  onChange={(e) => {
-                    setPinInput(e.target.value);
-                    setPinError('');
-                  }}
-                  placeholder="••••••••"
-                  autoFocus
-                  className="w-full px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 text-white placeholder-gray-600 focus:outline-none focus:border-[#A8B5A0] font-mono tracking-widest text-lg"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPin(!showPin)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
-                >
-                  {showPin ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-              {pinError && (
-                <div className="flex items-center gap-1.5 text-xs text-red-400 mt-2 font-mono">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>{pinError}</span>
-                </div>
-              )}
-              <p className="text-[11px] text-gray-500 font-mono mt-2">
-                * Стандартный PIN по умолчанию: <code className="text-[#A8B5A0]">admin2026</code>
-              </p>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full py-3.5 rounded-xl bg-[#A8B5A0] hover:bg-[#96a48e] text-[#0b0f19] font-bold text-sm shadow-lg shadow-[#A8B5A0]/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <KeyRound className="w-4 h-4" />
-              <span>Войти в систему</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={onBack}
-              className="w-full py-2.5 rounded-xl bg-transparent hover:bg-gray-900 text-gray-400 hover:text-white text-xs font-mono transition-all flex items-center justify-center gap-2"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>← Вернуться на лендинг</span>
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  // 2. Full Admin Dashboard
   return (
     <div className="min-h-screen bg-[#070a11] text-[#f3f4f6] flex flex-col font-sans">
       {/* Top Header */}
@@ -234,7 +95,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
             title="Вернуться на сайт"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline font-mono">На сайт</span>
+            <span className="font-mono">← На сайт</span>
           </button>
           <div className="h-5 w-px bg-gray-800 hidden sm:block"></div>
           <div className="flex items-center gap-2">
@@ -242,7 +103,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
               {formData.brandName}
             </span>
             <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#A8B5A0]/20 text-[#A8B5A0] border border-[#A8B5A0]/30 uppercase font-semibold">
-              Admin Panel
+              Панель управления
             </span>
           </div>
         </div>
@@ -261,15 +122,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
           >
             <Save className="w-4 h-4" />
             <span>Сохранить</span>
-          </button>
-
-          <button
-            onClick={handleLogout}
-            className="p-2 sm:px-3 sm:py-2 rounded-xl bg-gray-900 hover:bg-red-500/10 hover:text-red-400 border border-gray-800 text-gray-400 text-xs font-mono flex items-center gap-1.5 transition-all cursor-pointer"
-            title="Выйти из админки"
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="hidden md:inline">Выйти</span>
           </button>
         </div>
       </header>
@@ -300,18 +152,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
           >
             <DollarSign className="w-4 h-4" />
             <span>Тарифы и цены</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('security')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-mono flex items-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'security'
-                ? 'bg-[#131b26] text-[#A8B5A0] border border-[#A8B5A0]/40 font-bold'
-                : 'text-gray-400 hover:text-white hover:bg-gray-900'
-            }`}
-          >
-            <KeyRound className="w-4 h-4" />
-            <span>PIN-код доступа</span>
           </button>
 
           <button
@@ -498,70 +338,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
           </div>
         )}
 
-        {/* Tab 3: Security / PIN Code */}
-        {activeTab === 'security' && (
-          <div className="bg-[#0b0f19] border border-gray-800 rounded-2xl p-6 sm:p-8 space-y-6 max-w-xl">
-            <div>
-              <h2 className="text-lg font-bold text-white font-mono flex items-center gap-2">
-                <KeyRound className="w-5 h-5 text-[#A8B5A0]" />
-                <span>Смена PIN-кода администратора</span>
-              </h2>
-              <p className="text-xs text-gray-400 mt-1">
-                Защитите доступ к панели управления персональным PIN-кодом
-              </p>
-            </div>
-
-            <form onSubmit={handleChangePin} className="space-y-4">
-              <div>
-                <label className="block text-xs font-mono text-gray-300 mb-1">Новый PIN-код</label>
-                <input
-                  type="password"
-                  value={newPin}
-                  onChange={(e) => setNewPin(e.target.value)}
-                  placeholder="Минимум 4 символа"
-                  className="w-full px-4 py-2.5 rounded-xl bg-gray-900 border border-gray-800 text-white focus:outline-none focus:border-[#A8B5A0] font-mono text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-mono text-gray-300 mb-1">Подтвердите новый PIN-код</label>
-                <input
-                  type="password"
-                  value={confirmNewPin}
-                  onChange={(e) => setConfirmNewPin(e.target.value)}
-                  placeholder="Повторите ввод"
-                  className="w-full px-4 py-2.5 rounded-xl bg-gray-900 border border-gray-800 text-white focus:outline-none focus:border-[#A8B5A0] font-mono text-sm"
-                />
-              </div>
-
-              {pinChangeMessage.text && (
-                <div
-                  className={`text-xs font-mono flex items-center gap-2 p-3 rounded-lg ${
-                    pinChangeMessage.type === 'success'
-                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                      : 'bg-red-500/10 text-red-400 border border-red-500/30'
-                  }`}
-                >
-                  {pinChangeMessage.type === 'success' ? (
-                    <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                  )}
-                  <span>{pinChangeMessage.text}</span>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                className="px-5 py-2.5 rounded-xl bg-gray-800 hover:bg-[#A8B5A0] hover:text-[#0b0f19] text-white font-mono text-xs font-bold transition-all cursor-pointer"
-              >
-                Обновить PIN-код
-              </button>
-            </form>
-          </div>
-        )}
-
-        {/* Tab 4: Backup & Reset */}
+        {/* Tab 3: Backup & Reset */}
         {activeTab === 'backup' && (
           <div className="bg-[#0b0f19] border border-gray-800 rounded-2xl p-6 sm:p-8 space-y-6">
             <div>
