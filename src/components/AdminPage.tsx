@@ -149,7 +149,12 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
         body: JSON.stringify({ password: passwordInput }),
       });
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        // Response was not JSON
+      }
 
       if (res.status === 200 && data.token) {
         setToken(data.token);
@@ -164,12 +169,16 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
         sessionStorage.setItem(LOCKOUT_STORAGE_KEY, String(unlockMs));
         setAuthError(data.error || 'Слишком много попыток. Вход заблокирован на 15 минут.');
       } else if (res.status === 503) {
-        setAuthError('Серверная конфигурация безопасности не завершена (ADMIN_PASSWORD_HASH не задан).');
-      } else {
+        setAuthError(data.error || 'Серверная конфигурация безопасности не завершена (ADMIN_PASSWORD_HASH не задан).');
+      } else if (res.status === 401) {
         setAuthError(data.error || 'Неверный пароль администратора');
+      } else if (res.status === 403) {
+        setAuthError(data.error || 'Доступ запрещен (ошибка проверки Origin)');
+      } else {
+        setAuthError(data.error || `Ошибка сервера (${res.status})`);
       }
-    } catch {
-      setAuthError('Ошибка подключения к серверу авторизации');
+    } catch (err: any) {
+      setAuthError(`Ошибка сети: ${err?.message || 'не удалось связаться с сервером'}`);
     } finally {
       setIsSubmitting(false);
     }

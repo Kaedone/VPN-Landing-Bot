@@ -15,6 +15,15 @@ export const apiRouter = Router();
 // Security Headers & Policy Middleware
 // ----------------------------------------------------
 apiRouter.use((req: Request, res: Response, next: NextFunction) => {
+  const origin = req.headers['origin'] || '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-vercel-forwarded-for, x-real-ip');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
   // Never cache API responses
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
@@ -38,13 +47,34 @@ apiRouter.use((req: Request, res: Response, next: NextFunction) => {
 function validateOrigin(req: Request, res: Response, next: NextFunction) {
   if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
     const origin = req.headers['origin'];
-    const host = req.headers['host'];
+    const forwardedHost = req.headers['x-forwarded-host']?.toString();
+    const host = req.headers['host']?.toString();
+    const secFetchSite = req.headers['sec-fetch-site']?.toString();
 
-    // In dev / test or same origin
-    if (origin && host) {
+    // Standard browser same-origin request
+    if (secFetchSite === 'same-origin') {
+      return next();
+    }
+
+    if (origin) {
       try {
         const originUrl = new URL(origin);
-        if (originUrl.host !== host) {
+        const allowedHosts = [
+          host,
+          forwardedHost,
+          'localhost:3000',
+          '127.0.0.1:3000',
+        ].filter(Boolean);
+
+        const isMatched =
+          allowedHosts.some((h) => {
+            if (!h) return false;
+            return originUrl.host === h || originUrl.hostname === h.split(':')[0];
+          }) ||
+          originUrl.hostname.endsWith('.run.app') ||
+          originUrl.hostname.endsWith('.vercel.app');
+
+        if (!isMatched) {
           return res.status(403).json({ error: 'Запрещен межсайтовый запрос (несовпадение Origin/Host)' });
         }
       } catch {
