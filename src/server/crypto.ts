@@ -144,7 +144,7 @@ export async function verifyAdminPassword(password: string): Promise<boolean> {
  */
 export async function generateArgon2idHash(
   password: string,
-  options: { memorySize?: number; iterations?: number; parallelism?: number } = {}
+  options: { memorySize?: number; iterations?: number; parallelism?: number } = {},
 ): Promise<string> {
   const memorySize = options.memorySize ?? 65536; // 64 MiB
   const iterations = options.iterations ?? 3;
@@ -203,7 +203,9 @@ export interface SessionClaims {
 /**
  * Signs session JWT with 4-hour max lifespan, HS256, jti, and pwv claims.
  */
-export async function createSessionToken(jti = crypto.randomUUID()): Promise<{ token: string; jti: string; expiresIn: number }> {
+export async function createSessionToken(
+  jti = crypto.randomUUID(),
+): Promise<{ token: string; jti: string; expiresIn: number }> {
   const secretKey = getSessionSecretKey();
   const pwv = getPasswordVersion();
   const expiresIn = 4 * 60 * 60; // 4 hours in seconds
@@ -253,5 +255,38 @@ export async function verifySessionToken(token: string): Promise<SessionClaims |
     };
   } catch {
     return null;
+  }
+}
+
+/**
+ * Generates an unpredictable cryptographic CSRF token for a given session secret.
+ * Format: <random_bytes_hex>.<hmac_signature_hex>
+ */
+export function generateCsrfToken(csrfSecret: string): string {
+  const nonce = crypto.randomBytes(16).toString('hex');
+  const hmac = crypto.createHmac('sha256', csrfSecret).update(nonce).digest('hex');
+  return `${nonce}.${hmac}`;
+}
+
+/**
+ * Validates a CSRF token in constant time using HMAC and crypto.timingSafeEqual.
+ */
+export function verifyCsrfToken(csrfToken: string | undefined, csrfSecret: string): boolean {
+  if (!csrfToken || typeof csrfToken !== 'string') return false;
+  const parts = csrfToken.split('.');
+  if (parts.length !== 2) return false;
+
+  const [nonce, providedSignature] = parts;
+  if (!nonce || !providedSignature || providedSignature.length !== 64) return false;
+
+  const expectedSignature = crypto.createHmac('sha256', csrfSecret).update(nonce).digest('hex');
+
+  try {
+    const providedBuf = Buffer.from(providedSignature, 'hex');
+    const expectedBuf = Buffer.from(expectedSignature, 'hex');
+    if (providedBuf.length !== expectedBuf.length) return false;
+    return crypto.timingSafeEqual(providedBuf, expectedBuf);
+  } catch {
+    return false;
   }
 }

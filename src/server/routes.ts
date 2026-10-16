@@ -1,24 +1,61 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import { parseCookie, stringifySetCookie } from 'cookie';
+import crypto from 'crypto';
 import { extractClientIp } from './ip';
 import {
   verifyAdminPassword,
   createSessionToken,
   verifySessionToken,
+  generateCsrfToken,
+  verifyCsrfToken,
   isSecurityConfigured,
 } from './crypto';
 import { db } from './db';
 import { SiteSettings } from '../types/vpn';
+import { validateSiteSettings } from './validation';
 
 export const apiRouter = Router();
+
+export const COOKIE_SESSION_NAME = 'adultvpn_admin_session';
 
 // ----------------------------------------------------
 // Security Headers & Policy Middleware
 // ----------------------------------------------------
 apiRouter.use((req: Request, res: Response, next: NextFunction) => {
-  const origin = req.headers['origin'] || '*';
-  res.setHeader('Access-Control-Allow-Origin', origin);
+  const origin = req.headers['origin'];
+  const host = req.headers['host'];
+  const forwardedHost = req.headers['x-forwarded-host']?.toString();
+
+  // CORS Hardening:
+  // Disallow wildcard '*' when credentials/cookies are in use.
+  // Only reflect origin if it matches this server's host or trusted preview hosts.
+  let isAllowedOrigin = false;
+  if (origin) {
+    try {
+      const originUrl = new URL(origin);
+      const allowedHosts = [host, forwardedHost, 'localhost:3000', '127.0.0.1:3000'].filter(Boolean);
+      if (
+        allowedHosts.some((h) => h && (originUrl.host === h || originUrl.hostname === h.split(':')[0])) ||
+        originUrl.hostname.endsWith('.run.app') ||
+        originUrl.hostname.endsWith('.vercel.app')
+      ) {
+        isAllowedOrigin = true;
+      }
+    } catch {
+      isAllowedOrigin = false;
+    }
+  }
+
+  if (isAllowedOrigin && origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-vercel-forwarded-for, x-real-ip');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'Content-Type, Authorization, X-CSRF-Token, x-vercel-forwarded-for, x-real-ip',
+  );
 
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
@@ -29,13 +66,13 @@ apiRouter.use((req: Request, res: Response, next: NextFunction) => {
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
 
-  // Prevent framing, clickjacking, and MIME sniffing
+  // Prevent framing, clickjacking, MIME sniffing, and eval execution
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests",
   );
 
   next();
@@ -59,12 +96,7 @@ function validateOrigin(req: Request, res: Response, next: NextFunction) {
     if (origin) {
       try {
         const originUrl = new URL(origin);
-        const allowedHosts = [
-          host,
-          forwardedHost,
-          'localhost:3000',
-          '127.0.0.1:3000',
-        ].filter(Boolean);
+        const allowedHosts = [host, forwardedHost, 'localhost:3000', '127.0.0.1:3000'].filter(Boolean);
 
         const isMatched =
           allowedHosts.some((h) => {
@@ -88,15 +120,32 @@ function validateOrigin(req: Request, res: Response, next: NextFunction) {
 apiRouter.use(validateOrigin);
 
 // ----------------------------------------------------
-// Authentication Middleware
+// Authentication & Session Extraction Middleware
 // ----------------------------------------------------
-async function requireAuth(req: Request, res: Response, next: NextFunction) {
-  const authHeader = req.headers['authorization'];
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+export async function requireAuth(req: Request, res: Response, next: NextFunction) {
+  let token: string | null = null;
+
+  // 1. Try HttpOnly Cookie
+  const cookieHeader = req.headers['cookie'];
+  if (cookieHeader) {
+    const cookies = parseCookie(cookieHeader);
+    if (cookies[COOKIE_SESSION_NAME]) {
+      token = cookies[COOKIE_SESSION_NAME];
+    }
+  }
+
+  // 2. Fallback to Authorization: Bearer <token> for backwards compatibility & tests
+  if (!token) {
+    const authHeader = req.headers['authorization'];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.slice(7).trim();
+    }
+  }
+
+  if (!token) {
     return res.status(401).json({ error: 'Требуется авторизация администратора' });
   }
 
-  const token = authHeader.slice(7).trim();
   const claims = await verifySessionToken(token);
   if (!claims) {
     return res.status(401).json({ error: 'Сессия недействительна или истекла' });
@@ -105,6 +154,15 @@ async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const activeSession = db.validateSession(claims.jti);
   if (!activeSession) {
     return res.status(401).json({ error: 'Сессия была завершена или превышено время неактивности' });
+  }
+
+  // Check CSRF token on mutating requests (POST, PUT, DELETE, PATCH)
+  // Exception: /auth/logout is permitted to clear cookie even if CSRF is expired
+  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method) && req.path !== '/auth/logout') {
+    const csrfHeader = (req.headers['x-csrf-token'] || req.headers['x-xsrf-token'])?.toString();
+    if (!verifyCsrfToken(csrfHeader, activeSession.csrfSecret)) {
+      return res.status(403).json({ error: 'Недействительный или отсутствующий CSRF-токен' });
+    }
   }
 
   (req as any).adminSession = { claims, session: activeSession };
@@ -142,11 +200,7 @@ export function isValidBotUsername(username: string): boolean {
 
 /**
  * POST /api/auth/login
- * Step 1: Input size and format validation
- * Step 2: Trusted client IP resolution (400 if missing)
- * Step 3: Server config verification (503 fail-closed if baseline not met)
- * Step 4: Atomic rate limit reservation BEFORE computing Argon2id (429 if >= 5 attempts)
- * Step 5: Argon2id verification, audit logging, JWT issuance
+ * Sets HttpOnly SameSite=Strict secure cookie and returns session CSRF token.
  */
 apiRouter.post('/auth/login', async (req: Request, res: Response) => {
   const userAgent = req.headers['user-agent'] || null;
@@ -165,7 +219,12 @@ apiRouter.post('/auth/login', async (req: Request, res: Response) => {
 
   // Step 3: Configuration baseline check (Fail-Closed)
   if (!isSecurityConfigured()) {
-    db.recordAudit(ipInfo.ip, userAgent, 'CONFIG', 'Attempted login while ADMIN_PASSWORD_HASH is unset or below OWASP baseline');
+    db.recordAudit(
+      ipInfo.ip,
+      userAgent,
+      'CONFIG',
+      'Attempted login while ADMIN_PASSWORD_HASH is unset or below OWASP baseline',
+    );
     return res.status(503).json({
       error: 'Вход в панель управления временно недоступен (серверная конфигурация безопасности не завершена)',
     });
@@ -175,7 +234,13 @@ apiRouter.post('/auth/login', async (req: Request, res: Response) => {
   const reservation = db.reserveAttempt(ipInfo.networkKey);
 
   if (reservation.isBlocked) {
-    db.recordAudit(ipInfo.ip, userAgent, 'LOCKED', `IP rate limit exceeded (${reservation.attempts} attempts)`, reservation.attempts);
+    db.recordAudit(
+      ipInfo.ip,
+      userAgent,
+      'LOCKED',
+      `IP rate limit exceeded (${reservation.attempts} attempts)`,
+      reservation.attempts,
+    );
     res.setHeader('Retry-After', String(reservation.retryAfterSeconds));
     return res.status(429).json({
       error: 'Слишком много неудачных попыток входа. Доступ временно заблокирован на 15 минут.',
@@ -191,7 +256,13 @@ apiRouter.post('/auth/login', async (req: Request, res: Response) => {
   if (!isValid) {
     const isNowLocked = reservation.attempts >= 5;
     const status = isNowLocked ? 'LOCKED' : 'FAILED';
-    db.recordAudit(ipInfo.ip, userAgent, status, `Invalid password attempt #${reservation.attempts}`, reservation.attempts);
+    db.recordAudit(
+      ipInfo.ip,
+      userAgent,
+      status,
+      `Invalid password attempt #${reservation.attempts}`,
+      reservation.attempts,
+    );
 
     if (isNowLocked && reservation.lockedUntil) {
       res.setHeader('Retry-After', String(reservation.retryAfterSeconds));
@@ -208,41 +279,85 @@ apiRouter.post('/auth/login', async (req: Request, res: Response) => {
     });
   }
 
-  // Success: reset attempts and issue JWT session
+  // Success: reset attempts and issue session
   db.resetRateLimit(ipInfo.networkKey);
   db.recordAudit(ipInfo.ip, userAgent, 'SUCCESS', 'Admin login successful');
 
   const { token, jti, expiresIn } = await createSessionToken();
+  const csrfSecret = crypto.randomBytes(32).toString('hex');
+  const csrfToken = generateCsrfToken(csrfSecret);
   const expiresAtMs = Date.now() + expiresIn * 1000;
-  db.createSession(jti, (token as any).pwv || 'active', expiresAtMs);
+
+  db.createSession(jti, csrfSecret, (token as any).pwv || 'active', expiresAtMs);
+
+  // Set secure HttpOnly cookie
+  const isSecure = process.env.NODE_ENV === 'production' || req.secure || req.headers['x-forwarded-proto'] === 'https';
+  res.setHeader(
+    'Set-Cookie',
+    stringifySetCookie({
+      name: COOKIE_SESSION_NAME,
+      value: token,
+      httpOnly: true,
+      secure: isSecure,
+      sameSite: 'strict',
+      path: '/',
+      maxAge: expiresIn,
+    }),
+  );
 
   return res.status(200).json({
-    token,
+    token, // Provided for headless clients / tests
+    csrfToken,
     expiresIn,
+    user: { role: 'admin' },
   });
 });
 
 /**
  * POST /api/auth/logout
- * Revokes current session token in storage
+ * Clears HttpOnly cookie and revokes session in DB
  */
 apiRouter.post('/auth/logout', requireAuth, (req: Request, res: Response) => {
   const session = (req as any).adminSession;
   if (session?.claims?.jti) {
     db.revokeSession(session.claims.jti);
     const ipInfo = extractClientIp(req);
-    db.recordAudit(ipInfo?.ip || 'unknown', req.headers['user-agent'] || null, 'LOGOUT', `Session revoked: ${session.claims.jti}`);
+    db.recordAudit(
+      ipInfo?.ip || 'unknown',
+      req.headers['user-agent'] || null,
+      'LOGOUT',
+      `Session revoked: ${session.claims.jti}`,
+    );
   }
+
+  const isSecure = process.env.NODE_ENV === 'production' || req.secure || req.headers['x-forwarded-proto'] === 'https';
+  res.setHeader(
+    'Set-Cookie',
+    stringifySetCookie({
+      name: COOKIE_SESSION_NAME,
+      value: '',
+      httpOnly: true,
+      secure: isSecure,
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 0,
+    }),
+  );
+
   return res.status(200).json({ success: true });
 });
 
 /**
  * GET /api/auth/me
- * Checks token validity, active sessions count
+ * Returns authentication status, fresh CSRF token, and active session count
  */
 apiRouter.get('/auth/me', requireAuth, (req: Request, res: Response) => {
+  const session = (req as any).adminSession;
+  const csrfToken = generateCsrfToken(session.session.csrfSecret);
+
   return res.status(200).json({
     authenticated: true,
+    csrfToken,
     activeSessionsCount: db.getActiveSessionsCount(),
   });
 });
@@ -255,14 +370,14 @@ apiRouter.get('/auth/me', requireAuth, (req: Request, res: Response) => {
  * GET /api/settings
  * Public endpoint: returns current settings and version without authentication
  */
-apiRouter.get('/settings', (_req: Request, res: Response) => {
-  const settings = db.getSettings();
+apiRouter.get('/settings', async (_req: Request, res: Response) => {
+  const settings = await db.getSettingsAsync();
   return res.status(200).json(settings);
 });
 
 /**
  * PUT /api/settings
- * Admin-only: validates settings structure, bot links, and requires confirmPassword for bot URL changes
+ * Admin-only: validates complete settings structure with validateSiteSettings
  */
 apiRouter.put('/settings', requireAuth, async (req: Request, res: Response) => {
   const ipInfo = extractClientIp(req);
@@ -274,30 +389,21 @@ apiRouter.put('/settings', requireAuth, async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Некорректный формат запроса (требуются version и data)' });
   }
 
-  const currentSettings = db.getSettings();
-
-  // Validate brandName
-  if (!data.brandName || typeof data.brandName !== 'string' || data.brandName.trim().length > 60) {
-    return res.status(400).json({ error: 'Некорректное имя бренда' });
-  }
-
-  // Validate botUsername
-  if (!isValidBotUsername(data.botUsername)) {
+  // Server-side strict validation
+  const validation = validateSiteSettings(data);
+  if (!validation.isValid || !validation.data) {
     return res.status(400).json({
-      error: 'Юзернейм бота должен содержать от 5 до 32 символов (латиница, цифры и подчеркивание)',
+      error: 'Ошибка валидации настроек или тарифов',
+      details: validation.errors,
     });
   }
 
-  // Validate supportLink
-  if (data.supportLink && !isValidTelegramUrl(data.supportLink)) {
-    return res.status(400).json({
-      error: 'Ссылка на поддержку должна быть вида https://t.me/имя_бота или https://telegram.me/имя_бота',
-    });
-  }
+  const sanitizedData = validation.data;
+  const currentSettings = await db.getSettingsAsync();
 
   // Check if critical bot settings were changed
-  const isBotUsernameChanged = currentSettings.data.botUsername !== data.botUsername;
-  const isSupportLinkChanged = currentSettings.data.supportLink !== data.supportLink;
+  const isBotUsernameChanged = currentSettings.data.botUsername !== sanitizedData.botUsername;
+  const isSupportLinkChanged = currentSettings.data.supportLink !== sanitizedData.supportLink;
 
   if (isBotUsernameChanged || isSupportLinkChanged) {
     if (!confirmPassword || typeof confirmPassword !== 'string') {
@@ -309,20 +415,20 @@ apiRouter.put('/settings', requireAuth, async (req: Request, res: Response) => {
 
     const isPasswordValid = await verifyAdminPassword(confirmPassword);
     if (!isPasswordValid) {
-      db.recordAudit(ipInfo?.ip || 'unknown', userAgent, 'REAUTH_FAILED', 'Failed password confirmation for bot link update');
+      db.recordAudit(
+        ipInfo?.ip || 'unknown',
+        userAgent,
+        'REAUTH_FAILED',
+        'Failed password confirmation for bot link update',
+      );
       return res.status(401).json({
         error: 'Неверный пароль подтверждения',
       });
     }
   }
 
-  // Validate pricing array
-  if (!Array.isArray(data.pricing) || data.pricing.length === 0) {
-    return res.status(400).json({ error: 'Список тарифов не может быть пустым' });
-  }
-
   // Save new settings with optimistic locking
-  const result = db.updateSettings(data as SiteSettings, version);
+  const result = db.updateSettings(sanitizedData, version);
 
   if (!result.success) {
     return res.status(409).json({
@@ -331,17 +437,12 @@ apiRouter.put('/settings', requireAuth, async (req: Request, res: Response) => {
     });
   }
 
-  db.recordAudit(
-    ipInfo?.ip || 'unknown',
-    userAgent,
-    'SETTINGS',
-    `Settings updated to version ${result.version}`
-  );
+  db.recordAudit(ipInfo?.ip || 'unknown', userAgent, 'SETTINGS', `Settings updated to version ${result.version}`);
 
   return res.status(200).json({
     success: true,
     version: result.version,
-    data: db.getSettings().data,
+    data: sanitizedData,
   });
 });
 
@@ -375,7 +476,7 @@ apiRouter.post('/settings/rollback', requireAuth, (req: Request, res: Response) 
     ipInfo?.ip || 'unknown',
     req.headers['user-agent'] || null,
     'SETTINGS',
-    `Rollback to version ${targetVersion}, new version ${result.version}`
+    `Rollback to version ${targetVersion}, new version ${result.version}`,
   );
 
   return res.status(200).json(result);

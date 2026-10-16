@@ -13,6 +13,14 @@ try {
   // Ignore if .env is absent
 }
 
+// Clean placeholder database URL if present from environment templates
+if (
+  process.env.POSTGRES_URL &&
+  (process.env.POSTGRES_URL.includes('@hostname') || process.env.POSTGRES_URL.includes('example.com'))
+) {
+  delete process.env.POSTGRES_URL;
+}
+
 async function startServer() {
   const app = express();
   const port = parseInt(process.env.PORT || '3000', 10);
