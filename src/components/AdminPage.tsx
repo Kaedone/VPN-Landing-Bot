@@ -30,10 +30,8 @@ const TOKEN_STORAGE_KEY = 'adultvpn_admin_jwt';
 const LOCKOUT_STORAGE_KEY = 'adultvpn_admin_lockout_until';
 
 export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }) => {
-  const [token, setToken] = useState<string | null>(() => {
-    if (typeof window === 'undefined') return null;
-    return sessionStorage.getItem(TOKEN_STORAGE_KEY);
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [csrfToken, setCsrfToken] = useState<string | null>(null);
 
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -63,7 +61,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
 
   // History list
-  const [historyList, setHistoryList] = useState<{ id: number; version: number; data: SiteSettings; savedAt: number }[]>([]);
+  const [historyList, setHistoryList] = useState<
+    { id: number; version: number; data: SiteSettings; savedAt: number }[]
+  >([]);
 
   // Lockout countdown timer
   useEffect(() => {
@@ -80,28 +80,34 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
     return () => clearInterval(interval);
   }, [lockoutSeconds]);
 
-  // Check existing session token on mount
+  // Check existing session via HttpOnly cookie on mount
   useEffect(() => {
-    if (!token) return;
-
     fetch('/api/auth/me', {
-      headers: { Authorization: `Bearer ${token}` },
+      credentials: 'include',
     })
       .then((res) => {
-        if (!res.ok) {
-          handleLogout();
-        } else {
-          loadServerSettings();
+        if (res.ok) {
+          return res.json();
         }
+        throw new Error('Unauthenticated');
+      })
+      .then((data) => {
+        setIsAuthenticated(true);
+        if (data.csrfToken) {
+          setCsrfToken(data.csrfToken);
+        }
+        loadServerSettings();
       })
       .catch(() => {
-        // Dev offline fallback
+        setIsAuthenticated(false);
       });
-  }, [token]);
+  }, []);
 
   const loadServerSettings = async () => {
     try {
-      const res = await fetch('/api/settings');
+      const res = await fetch('/api/settings', {
+        credentials: 'include',
+      });
       if (res.ok) {
         const json = await res.json();
         if (json.data && json.version) {
@@ -115,10 +121,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
   };
 
   const loadHistory = async () => {
-    if (!token) return;
     try {
       const res = await fetch('/api/settings/history', {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       if (res.ok) {
         const json = await res.json();
@@ -143,6 +148,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -156,9 +162,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
         // Response was not JSON
       }
 
-      if (res.status === 200 && data.token) {
-        setToken(data.token);
-        sessionStorage.setItem(TOKEN_STORAGE_KEY, data.token);
+      if (res.status === 200) {
+        setIsAuthenticated(true);
+        if (data.csrfToken) {
+          setCsrfToken(data.csrfToken);
+        }
         setPasswordInput('');
         setAuthError('');
         loadServerSettings();
@@ -185,18 +193,16 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
   };
 
   const handleLogout = async () => {
-    if (token) {
-      try {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      } catch {
-        // ignore
-      }
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {
+      // ignore
     }
-    setToken(null);
-    sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+    setIsAuthenticated(false);
+    setCsrfToken(null);
     setPasswordInput('');
   };
 
@@ -205,12 +211,17 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
     setSaveSuccess(false);
 
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (csrfToken) {
+        headers['X-CSRF-Token'] = csrfToken;
+      }
+
       const res = await fetch('/api/settings', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: 'include',
+        headers,
         body: JSON.stringify({
           version: settingsVersion,
           data: formData,
@@ -232,6 +243,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
         setShowConfirmModal(true);
       } else if (res.status === 401 && confirmedPassword) {
         setConfirmPasswordError('Неверный пароль подтверждения');
+      } else if (res.status === 403) {
+        setSaveError('Сессия устарела или неверный CSRF токен. Пожалуйста, обновите страницу.');
       } else if (res.status === 409) {
         setSaveError('Конфликт версий: настройки были изменены в другой вкладке. Обновите страницу.');
       } else {
@@ -246,14 +259,18 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
   };
 
   const handleRollback = async (targetVersion: number) => {
-    if (!token) return;
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (csrfToken) {
+        headers['X-CSRF-Token'] = csrfToken;
+      }
+
       const res = await fetch('/api/settings/rollback', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: 'include',
+        headers,
         body: JSON.stringify({ targetVersion }),
       });
       const data = await res.json();
@@ -313,7 +330,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
   };
 
   // 1. Clean Secure Authentication Screen (NO HINTS, NO DEFAULT CREDENTIALS)
-  if (!token) {
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#070a11] text-[#f3f4f6] flex items-center justify-center p-4">
         <div className="w-full max-w-sm bg-[#0b0f19] border border-gray-800 rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
@@ -551,7 +568,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
 
               <div>
                 <label className="block text-xs font-mono text-gray-300 mb-1.5">
-                  Юзернейм бота в Telegram <span className="text-amber-400 font-sans text-[11px]">(требует подтверждения паролем)</span>
+                  Юзернейм бота в Telegram{' '}
+                  <span className="text-amber-400 font-sans text-[11px]">(требует подтверждения паролем)</span>
                 </label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 font-mono text-sm">@</span>
@@ -566,7 +584,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-gray-300 mb-1.5">Стартовый реферальный параметр бота</label>
+                <label className="block text-xs font-mono text-gray-300 mb-1.5">
+                  Стартовый реферальный параметр бота
+                </label>
                 <input
                   type="text"
                   value={formData.defaultStartParam}
@@ -581,7 +601,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
 
               <div>
                 <label className="block text-xs font-mono text-gray-300 mb-1.5">
-                  Ссылка на поддержку в Telegram <span className="text-amber-400 font-sans text-[11px]">(https://t.me/...)</span>
+                  Ссылка на поддержку в Telegram{' '}
+                  <span className="text-amber-400 font-sans text-[11px]">(https://t.me/...)</span>
                 </label>
                 <input
                   type="text"
@@ -673,9 +694,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
                       <input
                         type="text"
                         value={plan.badge || ''}
-                        onChange={(e) =>
-                          handlePriceFieldChange(plan.id, 'badge', e.target.value || undefined)
-                        }
+                        onChange={(e) => handlePriceFieldChange(plan.id, 'badge', e.target.value || undefined)}
                         placeholder="ХИТ / ВЫГОДНО"
                         className="w-full px-3 py-2 rounded-lg bg-gray-950 border border-gray-800 text-white font-mono text-xs focus:border-[#A8B5A0] focus:outline-none"
                       />
@@ -713,7 +732,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
             </div>
 
             {historyList.length === 0 ? (
-              <p className="text-xs text-gray-400 font-mono">История пока пуста. При сохранении настроек здесь появятся ревизии.</p>
+              <p className="text-xs text-gray-400 font-mono">
+                История пока пуста. При сохранении настроек здесь появятся ревизии.
+              </p>
             ) : (
               <div className="space-y-3">
                 {historyList.map((entry) => (
@@ -729,7 +750,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({ settings, onSave, onBack }
                         </span>
                       </div>
                       <p className="text-xs text-gray-400 mt-0.5">
-                        Бренд: {entry.data.brandName} • Бот: @{entry.data.botUsername} • Тарифов: {entry.data.pricing.length}
+                        Бренд: {entry.data.brandName} • Бот: @{entry.data.botUsername} • Тарифов:{' '}
+                        {entry.data.pricing.length}
                       </p>
                     </div>
 
